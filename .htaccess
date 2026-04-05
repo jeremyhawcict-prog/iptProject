@@ -1,0 +1,69 @@
+# ============================================================
+#  MediQueue — .htaccess (Section 7.6)
+#  Place in: public_html/mediqueue/.htaccess
+# ============================================================
+
+# ── Disable directory indexes ──────────────────────────────
+Options -Indexes
+
+# ── UTF-8 default ─────────────────────────────────────────
+AddDefaultCharset UTF-8
+
+# ── PHP settings moved to .user.ini (ByetHost runs PHP as CGI) ──
+# php_flag / php_value directives do NOT work on CGI/FastCGI hosts.
+# See .user.ini in this same directory for the equivalent settings.
+
+# ── Rewrite engine ─────────────────────────────────────────
+RewriteEngine On
+
+# ── HTTPS redirect (uncomment when SSL is active on ByetHost)
+# RewriteCond %{HTTPS} !=on
+# RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+# ── Block direct access to includes/ and vendor/ ──────────
+RewriteRule ^includes/ - [F,L]
+RewriteRule ^vendor/ - [F,L]
+
+# ── Block common SQL injection patterns in query strings ──
+RewriteCond %{QUERY_STRING} (\bUNION\b.*\bSELECT\b|\bSELECT\b.*\bFROM\b|\bINSERT\b.*\bINTO\b|\bDELETE\b.*\bFROM\b|\bDROP\b.*\bTABLE\b) [NC]
+RewriteRule .* - [F,L]
+
+# Block suspicious characters in query strings
+RewriteCond %{QUERY_STRING} (<script|%3Cscript|\.\.\/|\.\.\\) [NC]
+RewriteRule .* - [F,L]
+
+# ── Security headers ──────────────────────────────────────
+<IfModule mod_headers.c>
+    # Prevent MIME-type sniffing
+    Header always set X-Content-Type-Options "nosniff"
+
+    # Clickjacking protection
+    Header always set X-Frame-Options "DENY"
+
+    # XSS protection (legacy browsers)
+    Header always set X-XSS-Protection "1; mode=block"
+
+    # Referrer policy
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+
+    # Remove server signature
+    Header unset Server
+    Header unset X-Powered-By
+</IfModule>
+
+# ── Block access to sensitive files ───────────────────────
+<FilesMatch "\.(sql|log|md|sh|bak|env|ini)$">
+    Require all denied
+</FilesMatch>
+
+# ── Cache static assets ──────────────────────────────────
+<IfModule mod_expires.c>
+    ExpiresActive On
+    ExpiresByType text/css "access plus 1 week"
+    ExpiresByType application/javascript "access plus 1 week"
+    ExpiresByType image/jpeg "access plus 1 month"
+    ExpiresByType image/png "access plus 1 month"
+    ExpiresByType image/gif "access plus 1 month"
+    ExpiresByType image/webp "access plus 1 month"
+    ExpiresByType image/svg+xml "access plus 1 month"
+</IfModule>

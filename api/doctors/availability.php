@@ -1,0 +1,60 @@
+<?php
+/**
+ * MediQueue — Doctor Availability (available slots for a date)
+ * GET api/doctors/availability.php?doctor_id=&date=
+ *
+ * Used by the Patient booking wizard (Step 2).
+ * Returns only available (is_available=1) time slots.
+ * Public-ish: requires login but no specific role.
+ */
+
+require_once __DIR__ . '/../../includes/api_guard.php';
+
+guardApi('GET', true, false);
+
+$doctorId = getGetInt('doctor_id');
+$date     = getGetString('date');
+
+if (!$doctorId) {
+    jsonError('doctor_id is required.', 400);
+}
+if (!$date || !isValidDate($date)) {
+    jsonError('A valid date (YYYY-MM-DD) is required.', 400);
+}
+
+$doctor = getDoctorProfile($doctorId);
+if (!$doctor) {
+    jsonError('Doctor not found.', 404);
+}
+
+$db   = getDB();
+$stmt = $db->prepare(
+    'SELECT id, slot_date, start_time, end_time
+     FROM time_slots
+     WHERE doctor_id = ? AND slot_date = ? AND is_available = 1
+     ORDER BY start_time ASC'
+);
+$stmt->execute([$doctorId, $date]);
+$slots = $stmt->fetchAll();
+
+// Format for frontend
+$formatted = array_map(function ($s) {
+    return [
+        'slot_id'    => (int) $s['id'],
+        'date'       => $s['slot_date'],
+        'start_time' => $s['start_time'],
+        'end_time'   => $s['end_time'],
+        'label'      => formatTime($s['start_time']) . ' – ' . formatTime($s['end_time']),
+    ];
+}, $slots);
+
+jsonSuccess([
+    'doctor'  => [
+        'id'             => (int) $doctor['id'],
+        'full_name'      => $doctor['full_name'],
+        'specialization' => $doctor['specialization'],
+    ],
+    'date'    => $date,
+    'slots'   => $formatted,
+    'count'   => count($formatted),
+]);
