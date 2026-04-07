@@ -15,9 +15,23 @@ guardApi('POST', true, true, ['patient']);
 
 $slotId = getPostInt('slot_id');
 $reason = getPostString('reason_for_visit', '') ?: getPostString('notes', '');
+$visitType = getPostString('visit_type', 'General Checkup');
+$reminderPref = getPostString('reminder_preference', 'email');
 
 if (!$slotId) {
     jsonError('Please select a time slot.', 400);
+}
+
+// Validate visit_type
+$validVisitTypes = ['General Checkup', 'Follow-up', 'Vaccination', 'Specialist Consult', 'Emergency'];
+if (!in_array($visitType, $validVisitTypes, true)) {
+    $visitType = 'General Checkup';
+}
+
+// Validate reminder_preference
+$validReminders = ['email', 'sms', 'both'];
+if (!in_array($reminderPref, $validReminders, true)) {
+    $reminderPref = 'email';
 }
 
 $db = getDB();
@@ -61,10 +75,10 @@ try {
 
     // 3. Insert appointment
     $insStmt = $db->prepare(
-        "INSERT INTO appointments (patient_id, doctor_id, slot_id, appointment_date, start_time, status, reason_for_visit)
-         VALUES (?, ?, ?, ?, ?, 'pending', ?)"
+        "INSERT INTO appointments (patient_id, doctor_id, slot_id, appointment_date, start_time, status, visit_type, reason_for_visit, reminder_preference)
+         VALUES (?, ?, ?, ?, ?, 'pending', ?, ?, ?)"
     );
-    $insStmt->execute([$patientId, $doctorId, $slotId, $slotDate, $startTime, $reason]);
+    $insStmt->execute([$patientId, $doctorId, $slotId, $slotDate, $startTime, $visitType, $reason, $reminderPref]);
     $appointmentId = (int) $db->lastInsertId();
 
     // 4. Mark slot unavailable

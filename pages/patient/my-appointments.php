@@ -18,8 +18,10 @@ requireRole(['patient']);
     <button class="btn btn-sm btn-outline filter-tab active" data-status="">All</button>
     <button class="btn btn-sm btn-outline filter-tab" data-status="pending">Pending</button>
     <button class="btn btn-sm btn-outline filter-tab" data-status="confirmed">Confirmed</button>
+    <button class="btn btn-sm btn-outline filter-tab" data-status="in_progress">In Progress</button>
     <button class="btn btn-sm btn-outline filter-tab" data-status="completed">Completed</button>
     <button class="btn btn-sm btn-outline filter-tab" data-status="cancelled">Cancelled</button>
+    <button class="btn btn-sm btn-outline filter-tab" data-status="no_show">No Show</button>
   </div>
 
   <div class="table-responsive">
@@ -85,7 +87,7 @@ requireRole(['patient']);
 <script>
 (function(){
   var currentPage = 1, currentStatus = '', reschSlotId = null, fbRating = 0;
-  var badgeMap = {pending:'badge-warning',confirmed:'badge-success',completed:'badge-primary',cancelled:'badge-danger',rescheduled:'badge-info'};
+  var badgeMap = {pending:'badge-warning',confirmed:'badge-success',completed:'badge-primary',cancelled:'badge-danger',rescheduled:'badge-info',in_progress:'badge-info',no_show:'badge-danger'};
 
   function loadAppts(page){
     currentPage = page||1;
@@ -144,7 +146,8 @@ requireRole(['patient']);
   // Cancel
   window.cancelAppt = function(id){
     utils.confirmAction('Cancel this appointment?', function(){
-      utils.apiPost(utils.apiUrl('appointments/update.php'), {appointment_id:id, action:'cancel'}, function(err,data){
+      var reason = prompt('Reason for cancellation (optional):') || '';
+      utils.apiPost(utils.apiUrl('appointments/update.php'), {appointment_id:id, action:'cancel', cancellation_reason:reason}, function(err,data){
         if(data&&data.success){ utils.showToast('Cancelled.','success'); loadAppts(currentPage); }
         else utils.showAlert(data?data.message:'Failed.','error');
       });

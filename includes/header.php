@@ -139,6 +139,7 @@ if (isLoggedIn()) {
             <?php if (!isLoggedIn()): ?>
             <ul class="nav-links">
                 <li><a href="<?= BASE_URL ?>/pages/index.php" class="nav-link"><i class="fa-solid fa-house"></i> Home</a></li>
+                <li><a href="<?= BASE_URL ?>/pages/find-doctor.php" class="nav-link"><i class="fa-solid fa-user-doctor"></i> Find a Doctor</a></li>
                 <li><a href="<?= BASE_URL ?>/pages/about.php" class="nav-link"><i class="fa-solid fa-circle-info"></i> About</a></li>
             </ul>
             <?php endif; ?>

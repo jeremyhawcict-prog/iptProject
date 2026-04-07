@@ -27,7 +27,7 @@ if (!$appointmentId || !$action) {
     jsonError('Missing appointment_id or action.', 400);
 }
 
-$validActions = ['confirm', 'cancel', 'complete', 'reschedule'];
+$validActions = ['confirm', 'cancel', 'complete', 'reschedule', 'no_show', 'in_progress'];
 if (!in_array($action, $validActions, true)) {
     jsonError('Invalid action. Must be one of: ' . implode(', ', $validActions), 400);
 }
@@ -82,8 +82,8 @@ switch ($action) {
         } elseif (!in_array($role, ['staff', 'admin'], true)) {
             jsonError('You do not have permission to complete this appointment.', 403);
         }
-        if ($appointment['status'] !== 'confirmed') {
-            jsonError('Only confirmed appointments can be completed.', 400);
+        if (!in_array($appointment['status'], ['confirmed', 'in_progress'], true)) {
+            jsonError('Only confirmed or in-progress appointments can be completed.', 400);
         }
         break;
 
@@ -95,11 +95,37 @@ switch ($action) {
         } elseif (!in_array($role, ['staff', 'admin'], true)) {
             jsonError('You do not have permission to reschedule this appointment.', 403);
         }
-        if (in_array($appointment['status'], ['completed', 'cancelled'], true)) {
+        if (in_array($appointment['status'], ['completed', 'cancelled', 'no_show'], true)) {
             jsonError('This appointment cannot be rescheduled.', 400);
         }
         if (!$newSlotId) {
             jsonError('Please select a new time slot for rescheduling.', 400);
+        }
+        break;
+
+    case 'no_show':
+        if ($role === 'doctor') {
+            if ($doctorId !== $userId) {
+                jsonError('You can only mark no-show for your own appointments.', 403);
+            }
+        } elseif (!in_array($role, ['staff', 'admin'], true)) {
+            jsonError('You do not have permission to mark this as no-show.', 403);
+        }
+        if ($appointment['status'] !== 'confirmed') {
+            jsonError('Only confirmed appointments can be marked as no-show.', 400);
+        }
+        break;
+
+    case 'in_progress':
+        if ($role === 'doctor') {
+            if ($doctorId !== $userId) {
+                jsonError('You can only start your own appointments.', 403);
+            }
+        } elseif (!in_array($role, ['staff', 'admin'], true)) {
+            jsonError('You do not have permission to start this appointment.', 403);
+        }
+        if ($appointment['status'] !== 'confirmed') {
+            jsonError('Only confirmed appointments can be started.', 400);
         }
         break;
 }
@@ -135,7 +161,8 @@ try {
 
         /* ── CANCEL ──────────────────────────────────────── */
         case 'cancel':
-            $db->prepare("UPDATE appointments SET status = 'cancelled' WHERE id = ?")->execute([$appointmentId]);
+            $cancelReason = getPostString('cancellation_reason');
+            $db->prepare("UPDATE appointments SET status = 'cancelled', cancelled_at = NOW(), cancellation_reason = ? WHERE id = ?")->execute([$cancelReason ?: null, $appointmentId]);
             // Free the slot
             $db->prepare('UPDATE time_slots SET is_available = 1 WHERE id = ?')->execute([$appointment['slot_id']]);
             $db->commit();
@@ -166,6 +193,29 @@ try {
             }
 
             jsonSuccess(['appointment_id' => $appointmentId, 'status' => 'completed'], 'Appointment marked as completed.');
+            break;
+
+        /* ── NO SHOW ─────────────────────────────────────── */
+        case 'no_show':
+            $db->prepare("UPDATE appointments SET status = 'no_show' WHERE id = ?")->execute([$appointmentId]);
+            $db->commit();
+
+            try {
+                $html = emailNoShow($appointment, $patient, $doctor);
+                sendMail($patient['email'], 'Missed Appointment — MediQueue', $html);
+            } catch (\Throwable $e) {
+                error_log('[MediQueue] Email error (no_show #' . $appointmentId . '): ' . $e->getMessage());
+            }
+
+            jsonSuccess(['appointment_id' => $appointmentId, 'status' => 'no_show'], 'Appointment marked as no-show.');
+            break;
+
+        /* ── IN PROGRESS ─────────────────────────────────── */
+        case 'in_progress':
+            $db->prepare("UPDATE appointments SET status = 'in_progress' WHERE id = ?")->execute([$appointmentId]);
+            $db->commit();
+
+            jsonSuccess(['appointment_id' => $appointmentId, 'status' => 'in_progress'], 'Appointment is now in progress.');
             break;
 
         /* ── RESCHEDULE ──────────────────────────────────── */

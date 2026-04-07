@@ -72,6 +72,22 @@ if (isLoggedIn()) { header('Location: ' . getRedirectByRole()); exit; }
 
         <div id="alert-container"></div>
 
+        <?php
+        $verify = $_GET['verify'] ?? '';
+        if ($verify === 'success'): ?>
+        <div style="background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.3);border-radius:8px;padding:12px;margin-bottom:16px;font-size:.85rem;color:#059669;">
+          <i class="fa-solid fa-check-circle"></i> Email verified successfully! You can now sign in.
+        </div>
+        <?php elseif ($verify === 'already'): ?>
+        <div style="background:rgba(59,130,246,.1);border:1px solid rgba(59,130,246,.3);border-radius:8px;padding:12px;margin-bottom:16px;font-size:.85rem;color:#2563EB;">
+          <i class="fa-solid fa-info-circle"></i> Your email is already verified.
+        </div>
+        <?php elseif ($verify === 'invalid'): ?>
+        <div style="background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);border-radius:8px;padding:12px;margin-bottom:16px;font-size:.85rem;color:#dc2626;">
+          <i class="fa-solid fa-exclamation-circle"></i> Invalid or expired verification link.
+        </div>
+        <?php endif; ?>
+
         <form id="loginForm" novalidate>
           <div class="input-group">
             <div class="input-icon"><i class="fa-solid fa-envelope" style="font-size:16px;opacity:.5"></i></div>

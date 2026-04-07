@@ -139,6 +139,46 @@ function emailWelcome(array $user): string {
 }
 
 /**
+ * Email verification link.
+ */
+function emailVerification(array $user, string $token): string {
+    $verifyUrl = (isset($_SERVER['HTTPS']) ? 'https' : 'http') . '://' . ($_SERVER['HTTP_HOST'] ?? 'localhost')
+               . BASE_URL . '/api/auth/verify-email.php?token=' . urlencode($token) . '&email=' . urlencode($user['email']);
+    $body = '
+        <h2 style="margin:0 0 8px;color:#1a2b3c;font-size:20px;">Verify Your Email</h2>
+        <p style="color:#5a6a7a;font-size:14px;line-height:1.6;margin:0 0 20px;">
+          Hi <strong>' . sanitize($user['full_name']) . '</strong>, please verify your email address to complete your registration.
+        </p>
+        <p style="text-align:center;margin:24px 0;">
+          <a href="' . htmlspecialchars($verifyUrl, ENT_QUOTES, 'UTF-8') . '"
+             style="display:inline-block;padding:12px 32px;background:linear-gradient(135deg,#2a5c7b,#3d8ab0);
+                    color:#ffffff;text-decoration:none;border-radius:8px;font-weight:700;font-size:14px;">
+            Verify Email
+          </a>
+        </p>
+        <p style="color:#8c9bab;font-size:12px;margin:16px 0 0;">If you did not create this account, please ignore this email.</p>';
+    return emailLayout('Verify Your Email', $body);
+}
+
+/**
+ * No-show notification email.
+ */
+function emailNoShow(array $appointment, array $patient, array $doctor): string {
+    $body = '
+        <h2 style="margin:0 0 8px;color:#1a2b3c;font-size:20px;">Missed Appointment</h2>
+        <p style="color:#5a6a7a;font-size:14px;line-height:1.6;margin:0 0 20px;">
+          Hi <strong>' . sanitize($patient['full_name']) . '</strong>, you were marked as a <strong style="color:#dc2626;">no-show</strong> for your appointment.
+        </p>
+        <table width="100%" cellpadding="8" cellspacing="0" style="background:#fef2f2;border-radius:8px;font-size:14px;color:#2a3b4c;">
+          <tr><td style="font-weight:600;width:140px;">Doctor</td><td>' . sanitize($doctor['full_name']) . '</td></tr>
+          <tr><td style="font-weight:600;">Date</td><td>' . formatDate($appointment['appointment_date']) . '</td></tr>
+          <tr><td style="font-weight:600;">Time</td><td>' . formatTime($appointment['start_time']) . '</td></tr>
+        </table>
+        <p style="color:#5a6a7a;font-size:13px;margin:20px 0 0;">If this was a mistake, please contact the clinic or rebook through your MediQueue account.</p>';
+    return emailLayout('Missed Appointment', $body);
+}
+
+/**
  * Password reset email with token link.
  */
 function emailPasswordReset(string $email, string $token): string {

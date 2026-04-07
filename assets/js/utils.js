@@ -756,6 +756,10 @@ const utils = (() => {
     debounce:        debounce,
     exportTableToCSV:exportTableToCSV,
     serializeForm:   serializeForm,
+    getUrlParam:     function(name) {
+      var params = new URLSearchParams(window.location.search);
+      return params.get(name);
+    },
 
     // Form helpers
     btnLoading:      btnLoading,

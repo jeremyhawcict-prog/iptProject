@@ -42,22 +42,36 @@ if ($stmt->fetch()) {
 }
 
 $hash = password_hash($password, PASSWORD_BCRYPT, ['cost' => 10]);
+$verifyToken = bin2hex(random_bytes(32));
 
 $db = getDB();
 $ins = $db->prepare(
-    'INSERT INTO users (full_name, email, password_hash, phone, role) VALUES (?, ?, ?, ?, ?)'
+    'INSERT INTO users (full_name, email, password_hash, phone, role, is_verified, email_verification_token) VALUES (?, ?, ?, ?, ?, 0, ?)'
 );
-$ins->execute([$name, $email, $hash, $phone ?: null, 'patient']);
+$ins->execute([$name, $email, $hash, $phone ?: null, 'patient', $verifyToken]);
 $userId = (int) $db->lastInsertId();
+
+// Create patient profile row
+$dob = getPostString('date_of_birth');
+$gender = getPostString('gender');
+$address = getPostString('address');
+$db->prepare(
+    'INSERT INTO patient_profiles (user_id, date_of_birth, gender, address) VALUES (?, ?, ?, ?)'
+)->execute([
+    $userId,
+    ($dob && isValidDate($dob)) ? $dob : null,
+    in_array($gender, ['male','female','prefer_not_to_say']) ? $gender : null,
+    $address ?: null
+]);
 
 $user = getUserById($userId);
 
-// Send welcome email (non-blocking)
+// Send verification email (non-blocking)
 try {
-    $html = emailWelcome($user);
-    sendMail($email, 'Welcome to MediQueue!', $html);
+    $html = emailVerification($user, $verifyToken);
+    sendMail($email, 'Verify Your Email — MediQueue', $html);
 } catch (\Throwable $e) {
-    error_log('[MediQueue] Welcome email error: ' . $e->getMessage());
+    error_log('[MediQueue] Verification email error: ' . $e->getMessage());
 }
 
 // Auto-login the new patient and redirect to dashboard
@@ -68,4 +82,4 @@ logAudit('register', 'user', $userId, 'New patient registered: ' . $email);
 jsonSuccess([
     'user_id'  => $userId,
     'redirect' => getRedirectByRole(),
-], 'Registration successful.', 201);
+], 'Registration successful. Please check your email to verify your account.', 201);

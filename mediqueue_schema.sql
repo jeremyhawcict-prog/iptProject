@@ -20,12 +20,15 @@ SET sql_mode = 'NO_ENGINE_SUBSTITUTION';
 -- ============================================================
 -- DROP (safe re-run)
 -- ============================================================
+DROP TABLE IF EXISTS `waitlist`;
+DROP TABLE IF EXISTS `slot_reservations`;
 DROP TABLE IF EXISTS `password_resets`;
 DROP TABLE IF EXISTS `notifications`;
 DROP TABLE IF EXISTS `feedback`;
 DROP TABLE IF EXISTS `patient_records`;
 DROP TABLE IF EXISTS `appointments`;
 DROP TABLE IF EXISTS `time_slots`;
+DROP TABLE IF EXISTS `patient_profiles`;
 DROP TABLE IF EXISTS `doctor_profiles`;
 DROP TABLE IF EXISTS `users`;
 
@@ -39,14 +42,37 @@ CREATE TABLE `users` (
   `password_hash` VARCHAR(255)   NOT NULL,
   `phone`         VARCHAR(20)    DEFAULT NULL,
   `role`          ENUM('patient','doctor','staff','admin') NOT NULL DEFAULT 'patient',
-  `profile_photo` VARCHAR(255)   NOT NULL DEFAULT 'default.svg',
-  `is_active`     TINYINT(1)     NOT NULL DEFAULT 1,
-  `created_at`    DATETIME       NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at`    DATETIME       NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `profile_photo`            VARCHAR(255)   NOT NULL DEFAULT 'default.svg',
+  `is_active`                TINYINT(1)     NOT NULL DEFAULT 1,
+  `is_verified`              TINYINT(1)     NOT NULL DEFAULT 0,
+  `email_verification_token` VARCHAR(255)   DEFAULT NULL,
+  `created_at`               DATETIME       NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at`               DATETIME       NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_users_email` (`email`),
   KEY `idx_users_role` (`role`),
   KEY `idx_users_is_active` (`is_active`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ============================================================
+-- 1b. patient_profiles
+-- ============================================================
+CREATE TABLE `patient_profiles` (
+  `id`              INT          NOT NULL AUTO_INCREMENT,
+  `user_id`         INT          NOT NULL,
+  `date_of_birth`   DATE         DEFAULT NULL,
+  `gender`          ENUM('male','female','prefer_not_to_say') DEFAULT NULL,
+  `address`         VARCHAR(250) DEFAULT NULL,
+  `blood_type`      VARCHAR(5)   DEFAULT NULL,
+  `allergies`       TEXT         DEFAULT NULL,
+  `medical_history` TEXT         DEFAULT NULL,
+  `emergency_contact_name`  VARCHAR(100) DEFAULT NULL,
+  `emergency_contact_phone` VARCHAR(20)  DEFAULT NULL,
+  `updated_at`      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_pp_user_id` (`user_id`),
+  CONSTRAINT `fk_pp_user`
+    FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================================
@@ -98,12 +124,16 @@ CREATE TABLE `appointments` (
   `slot_id`          INT          NOT NULL,
   `appointment_date` DATE         NOT NULL,
   `start_time`       TIME         NOT NULL,
-  `status`           ENUM('pending','confirmed','completed','cancelled','rescheduled')
-                                  NOT NULL DEFAULT 'pending',
-  `reason_for_visit` TEXT         DEFAULT NULL,
-  `notes`            TEXT         DEFAULT NULL,
-  `created_at`       DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at`       DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `status`              ENUM('pending','confirmed','in_progress','completed','cancelled','no_show','rescheduled')
+                                     NOT NULL DEFAULT 'pending',
+  `visit_type`          VARCHAR(50)  DEFAULT NULL,
+  `reason_for_visit`    TEXT         DEFAULT NULL,
+  `reminder_preference` ENUM('email','sms','both') NOT NULL DEFAULT 'email',
+  `notes`               TEXT         DEFAULT NULL,
+  `cancelled_at`        DATETIME     DEFAULT NULL,
+  `cancellation_reason` TEXT         DEFAULT NULL,
+  `created_at`          DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at`          DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   KEY `idx_appt_patient`  (`patient_id`),
   KEY `idx_appt_doctor`   (`doctor_id`),
@@ -205,6 +235,44 @@ CREATE TABLE `password_resets` (
   KEY `idx_pr_token` (`token`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- ============================================================
+-- 9. slot_reservations (temporary hold during booking)
+-- ============================================================
+CREATE TABLE `slot_reservations` (
+  `id`         INT          NOT NULL AUTO_INCREMENT,
+  `slot_id`    INT          NOT NULL,
+  `user_id`    INT          NOT NULL,
+  `expires_at` DATETIME     NOT NULL,
+  `created_at` DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_sr_slot` (`slot_id`),
+  CONSTRAINT `fk_sr_slot`
+    FOREIGN KEY (`slot_id`) REFERENCES `time_slots` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_sr_user`
+    FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ============================================================
+-- 10. waitlist
+-- ============================================================
+CREATE TABLE `waitlist` (
+  `id`         INT          NOT NULL AUTO_INCREMENT,
+  `patient_id` INT          NOT NULL,
+  `doctor_id`  INT          NOT NULL,
+  `preferred_date` DATE     NOT NULL,
+  `status`     ENUM('waiting','notified','booked','expired') NOT NULL DEFAULT 'waiting',
+  `notified_at` DATETIME   DEFAULT NULL,
+  `created_at` DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_wl_patient` (`patient_id`),
+  KEY `idx_wl_doctor` (`doctor_id`),
+  KEY `idx_wl_status` (`status`),
+  CONSTRAINT `fk_wl_patient`
+    FOREIGN KEY (`patient_id`) REFERENCES `users` (`id`),
+  CONSTRAINT `fk_wl_doctor`
+    FOREIGN KEY (`doctor_id`) REFERENCES `users` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 SET foreign_key_checks = 1;
 
 -- ============================================================
@@ -215,46 +283,54 @@ SET foreign_key_checks = 1;
 -- password_hash('password', PASSWORD_BCRYPT) — seed password = "password"
 -- Change all passwords after first login via admin panel.
 INSERT INTO `users`
-  (`id`, `full_name`, `email`, `password_hash`, `phone`, `role`, `profile_photo`, `is_active`)
+  (`id`, `full_name`, `email`, `password_hash`, `phone`, `role`, `profile_photo`, `is_active`, `is_verified`)
 VALUES
   -- Admin
   (1, 'System Administrator', 'admin@mediqueue.com',
    '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi',
-   '+63 912 000 0001', 'admin', 'default.svg', 1),
+   '+63 912 000 0001', 'admin', 'default.svg', 1, 1),
 
   -- Doctors
   (2, 'Dr. Ana Reyes', 'ana.reyes@mediqueue.com',
    '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi',
-   '+63 912 000 0002', 'doctor', 'default.svg', 1),
+   '+63 912 000 0002', 'doctor', 'default.svg', 1, 1),
 
   (3, 'Dr. Marco Santos', 'marco.santos@mediqueue.com',
    '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi',
-   '+63 912 000 0003', 'doctor', 'default.svg', 1),
+   '+63 912 000 0003', 'doctor', 'default.svg', 1, 1),
 
   (4, 'Dr. Liza Cruz', 'liza.cruz@mediqueue.com',
    '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi',
-   '+63 912 000 0004', 'doctor', 'default.svg', 1),
+   '+63 912 000 0004', 'doctor', 'default.svg', 1, 1),
 
   -- Patients (Filipino names)
   (5, 'Juan dela Cruz', 'juan.delacruz@email.com',
    '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi',
-   '+63 917 111 0005', 'patient', 'default.svg', 1),
+   '+63 917 111 0005', 'patient', 'default.svg', 1, 1),
 
   (6, 'Maria Santos', 'maria.santos@email.com',
    '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi',
-   '+63 917 111 0006', 'patient', 'default.svg', 1),
+   '+63 917 111 0006', 'patient', 'default.svg', 1, 1),
 
   (7, 'Pedro Reyes', 'pedro.reyes@email.com',
    '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi',
-   '+63 917 111 0007', 'patient', 'default.svg', 1),
+   '+63 917 111 0007', 'patient', 'default.svg', 1, 1),
 
   (8, 'Rosa Garcia', 'rosa.garcia@email.com',
    '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi',
-   '+63 917 111 0008', 'patient', 'default.svg', 1),
+   '+63 917 111 0008', 'patient', 'default.svg', 1, 1),
 
   (9, 'Carlo Bautista', 'carlo.bautista@email.com',
    '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi',
-   '+63 917 111 0009', 'patient', 'default.svg', 1);
+   '+63 917 111 0009', 'patient', 'default.svg', 1, 1);
+
+-- ── 1b. Patient Profiles (seed) ──────────────────────────
+INSERT INTO `patient_profiles` (`user_id`, `date_of_birth`, `gender`, `address`) VALUES
+  (5, '1990-05-15', 'male',   'Malolos, Bulacan'),
+  (6, '1988-11-22', 'female', 'Meycauayan, Bulacan'),
+  (7, '1995-03-10', 'male',   'San Jose del Monte, Bulacan'),
+  (8, '1992-07-04', 'female', 'Obando, Bulacan'),
+  (9, '1997-01-28', 'male',   'Marilao, Bulacan');
 
 -- ── 2. Doctor Profiles ───────────────────────────────────
 INSERT INTO `doctor_profiles`

@@ -118,6 +118,7 @@ $testimonials = $pdo->query(
   <div class="landing-nav-links">
     <a href="#features">Features</a>
     <a href="#doctors">Doctors</a>
+    <a href="<?= BASE_URL ?>/pages/find-doctor.php">Find a Doctor</a>
     <a href="<?= BASE_URL ?>/pages/login.php" class="nav-cta"><i class="fa-solid fa-right-to-bracket"></i> Login</a>
   </div>
 </nav>

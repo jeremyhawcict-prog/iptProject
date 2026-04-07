@@ -36,7 +36,7 @@ try {
 
 <h2>3. Tables Check</h2>
 <?php
-$required = ['users','appointments','time_slots','patient_records','feedback','notifications','system_settings','doctor_schedules','audit_logs'];
+$required = ['users','appointments','time_slots','patient_records','feedback','notifications','system_settings','doctor_schedules','audit_logs','doctor_profiles','patient_profiles','password_resets','slot_reservations','waitlist'];
 try {
     $tables = $pdo->query("SHOW TABLES")->fetchAll(PDO::FETCH_COLUMN);
     foreach ($required as $t) {

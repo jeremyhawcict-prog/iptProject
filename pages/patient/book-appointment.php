@@ -55,8 +55,26 @@ requireRole(['patient']);
       <div id="summaryContent" style="display:grid;gap:12px;"></div>
     </div>
     <div class="form-group" style="margin-top:16px;">
+      <label class="form-label">Type of Visit</label>
+      <select id="visitType" class="form-control">
+        <option value="General Checkup">General Checkup</option>
+        <option value="Follow-up">Follow-up</option>
+        <option value="Vaccination">Vaccination</option>
+        <option value="Specialist Consult">Specialist Consult</option>
+        <option value="Emergency">Emergency</option>
+      </select>
+    </div>
+    <div class="form-group" style="margin-top:12px;">
       <label class="form-label">Notes (optional)</label>
       <textarea id="apptNotes" class="form-control" rows="3" placeholder="Any symptoms or notes for the doctor…"></textarea>
+    </div>
+    <div class="form-group" style="margin-top:12px;">
+      <label class="form-label">Reminder Preference</label>
+      <div style="display:flex;gap:16px;">
+        <label style="display:flex;align-items:center;gap:6px;font-size:.88rem;cursor:pointer;"><input type="radio" name="reminderPref" value="email" checked /> Email</label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:.88rem;cursor:pointer;"><input type="radio" name="reminderPref" value="sms" /> SMS</label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:.88rem;cursor:pointer;"><input type="radio" name="reminderPref" value="both" /> Both</label>
+      </div>
     </div>
     <div style="display:flex;gap:8px;margin-top:16px;">
       <button class="btn btn-secondary" onclick="showStep(2)"><i class="fa-solid fa-arrow-left"></i> Back</button>
@@ -81,6 +99,7 @@ requireRole(['patient']);
 <script>
 (function(){
   var selectedDoctor = null, selectedSlot = null;
+  var preselectedDoctorId = utils.getUrlParam('doctor');
 
   function showStep(n){
     document.getElementById('wizardStep1').style.display = n===1?'block':'none';
@@ -133,6 +152,20 @@ requireRole(['patient']);
   document.getElementById('doctorSearch').addEventListener('input', utils.debounce(loadDoctors, 400));
   document.getElementById('specFilter').addEventListener('change', loadDoctors);
 
+  // Auto-select doctor if preselected via URL param
+  if (preselectedDoctorId) {
+    utils.apiGet(utils.apiUrl('doctors/profile.php'), {doctor_id: preselectedDoctorId}, function(err, data) {
+      if (data && data.success && data.data.doctor) {
+        var d = data.data.doctor;
+        selectedDoctor = d;
+        document.getElementById('selectedDoctorInfo').innerHTML =
+          '<img src="'+utils.BASE_URL+'/assets/uploads/photos/'+(d.profile_photo||'default.svg')+'" style="width:48px;height:48px;border-radius:50%;object-fit:cover;" />'
+          +'<div><strong>'+utils.escapeHtml(d.full_name)+'</strong><br><span class="text-muted text-sm">'+(d.specialization||'General')+'</span></div>';
+        showStep(2);
+      }
+    });
+  }
+
   // Date change → load slots
   document.getElementById('apptDate').addEventListener('change', function(){
     if(!selectedDoctor) return;
@@ -148,6 +181,10 @@ requireRole(['patient']);
         btn.addEventListener('click', function(){
           document.querySelectorAll('.slot-btn').forEach(function(b){b.classList.remove('selected');});
           this.classList.add('selected'); selectedSlot=s;
+          // Reserve slot temporarily (5 min hold)
+          utils.apiPost(utils.apiUrl('appointments/slots/reserve.php'), {slot_id: s.slot_id}, function(err, data){
+            // Silent — reservation is best-effort
+          });
         });
         slotsEl.appendChild(btn);
       });
@@ -167,14 +204,17 @@ requireRole(['patient']);
   // Confirm booking
   document.getElementById('confirmBooking').addEventListener('click', function(){
     var btn=this; btn.disabled=true; btn.innerHTML='<i class="fa-solid fa-spinner fa-spin"></i> Booking…';
+    var reminderPref = document.querySelector('input[name="reminderPref"]:checked');
     utils.apiPost(utils.apiUrl('appointments/book.php'), {
       slot_id: selectedSlot.slot_id,
-      notes: document.getElementById('apptNotes').value.trim()
+      notes: document.getElementById('apptNotes').value.trim(),
+      visit_type: document.getElementById('visitType').value,
+      reminder_preference: reminderPref ? reminderPref.value : 'email'
     }, function(err,data){
       btn.disabled=false; btn.innerHTML='<i class="fa-solid fa-check"></i> Confirm Booking';
       if(data&&data.success){
-        utils.showToast('Appointment booked!','success');
-        setTimeout(function(){ window.location.href=utils.pageUrl('patient/my-appointments.php'); },1200);
+        // Redirect to confirmation page
+        window.location.href=utils.pageUrl('patient/appointment-confirmation.php')+'?id='+data.data.appointment_id;
       } else { utils.showAlert(data?data.message:'Booking failed.','error'); }
     });
   });
