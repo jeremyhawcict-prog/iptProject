@@ -110,7 +110,7 @@ if (isLoggedIn()) {
   (function(){var t=localStorage.getItem('mediqueue-theme');if(t==='dark')document.documentElement.classList.add('dark');})();
   </script>
 </head>
-<body>
+<body<?php if (!empty($isAuthPage)): ?> class="auth-page"<?php endif; ?>>
 
 <!-- Background Layers (Premium animated) -->
 <canvas id="particleCanvas"></canvas>

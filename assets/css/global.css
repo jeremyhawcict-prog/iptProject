@@ -3083,15 +3083,32 @@ select.form-control {
    LOGIN SPLIT-CARD (Premium Login2 design)
    ============================================================= */
 
-/* Standalone auth page centering (no header/footer) */
+/* Auth page (login / register) centering */
 .container:has(.login-card) {
   flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding-top: 24px;
-  padding-bottom: 24px;
+  padding-top: 100px;
+  padding-bottom: 40px;
 }
+
+/* Hide the full footer on auth pages, show only the mini footer */
+.auth-page .footer { display: none; }
+.auth-mini-footer {
+  display: none;
+  text-align: center;
+  padding: 18px 16px;
+  font-size: 12px;
+  color: rgba(255,255,255,0.45);
+  position: relative;
+  z-index: 1;
+}
+.auth-mini-footer a { color: rgba(255,255,255,0.6); text-decoration: none; }
+.auth-mini-footer a:hover { color: #fff; }
+.auth-page .auth-mini-footer { display: block; }
+body.dark .auth-mini-footer { color: rgba(190,225,245,0.35); }
+body.dark .auth-mini-footer a { color: rgba(190,225,245,0.50); }
 
 .login-card {
   display: flex; width: 920px; max-width: 100%;
@@ -3504,6 +3521,84 @@ body.dark .btn-outline { border-color: var(--teal-bright); color: var(--teal-bri
 body.dark .tabs { background: rgba(255,255,255,0.04); }
 body.dark .tab-btn:hover, body.dark .tab:hover { background: rgba(255,255,255,0.06); color: #7ec8e8; }
 body.dark .tab-btn.active, body.dark .tab.active { background: rgba(78,132,166,0.22); color: #7ec8e8; box-shadow: 0 2px 10px rgba(0,0,0,0.28); }
+
+/* Dark: Login / Register Card */
+body.dark {
+  --card-right-bg: rgba(10,22,42,0.96);
+}
+body.dark .login-card {
+  border-color: rgba(255,255,255,0.06);
+  box-shadow: 0 28px 72px rgba(0,0,0,0.60), 0 8px 24px rgba(0,0,0,0.40);
+}
+body.dark .card-visual {
+  background: linear-gradient(150deg, #0f2a4a 0%, #122e50 40%, #0b2040 70%, #091a35 100%);
+}
+body.dark .card-visual::before {
+  background-image: linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+}
+body.dark .card-form {
+  border-left-color: rgba(255,255,255,0.05);
+}
+body.dark .corner-accent.top-right { background: radial-gradient(circle, rgba(78,132,166,0.08), transparent 70%); }
+body.dark .corner-accent.bottom-left { background: radial-gradient(circle, rgba(61,106,138,0.06), transparent 70%); }
+body.dark .login-card .input-group input,
+body.dark .login-card .input-group select {
+  background: var(--input-bg);
+  border-color: var(--input-border);
+  color: var(--text-primary);
+}
+body.dark .login-card .input-group input::placeholder {
+  color: var(--text-muted);
+}
+body.dark .login-card .input-group input:focus {
+  background: var(--input-focus-bg);
+  border-color: rgba(78,132,166,0.52);
+  box-shadow: 0 0 0 3px rgba(78,132,166,0.14);
+}
+body.dark .login-card .input-icon {
+  color: var(--text-muted);
+}
+body.dark .login-card .input-group:focus-within .input-icon {
+  color: #7ec8e8;
+}
+body.dark .toggle-password {
+  color: var(--text-muted);
+}
+body.dark .toggle-password:hover {
+  color: #7ec8e8;
+}
+body.dark .form-options .remember-me span { color: var(--text-secondary); }
+body.dark .forgot-pass { color: var(--text-secondary); }
+body.dark .forgot-pass:hover { color: #7ec8e8; }
+body.dark .login-btn {
+  background: linear-gradient(135deg, #1a4a72, #2563a8);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.35);
+}
+body.dark .login-btn:hover {
+  background: linear-gradient(135deg, #1e5580, #2d6fb8);
+  box-shadow: 0 6px 24px rgba(0,0,0,0.45);
+}
+body.dark .divider span { color: var(--text-muted); }
+body.dark .divider::before,
+body.dark .divider::after { background: rgba(255,255,255,0.06); }
+body.dark .reg-tab {
+  border-color: rgba(255,255,255,0.08) !important;
+  color: var(--text-secondary) !important;
+  background: transparent !important;
+}
+body.dark .reg-tab.active {
+  background: rgba(78,132,166,0.15) !important;
+  border-color: rgba(78,132,166,0.35) !important;
+  color: #7ec8e8 !important;
+}
+body.dark .stat-pill {
+  background: rgba(255,255,255,0.08);
+  border-color: rgba(255,255,255,0.10);
+}
+body.dark .stat-pill:hover {
+  background: rgba(255,255,255,0.14);
+  border-color: rgba(255,255,255,0.22);
+}
 
 /* Dark: Badges */
 body.dark .status-badge.confirmed, body.dark .status-badge.approved, body.dark .status-badge.active { background: linear-gradient(135deg, rgba(5,150,105,0.20), rgba(16,185,129,0.12)); border-color: rgba(5,150,105,0.26); }

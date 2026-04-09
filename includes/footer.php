@@ -72,6 +72,12 @@ if (isLoggedIn()): ?>
     </div>
 </footer>
 
+<!-- Mini footer for auth pages (login / register) -->
+<div class="auth-mini-footer">
+    &copy; <?= date('Y') ?> MediQueue &middot; Bulacan State University &ndash; BSIT 2H &middot;
+    <a href="<?= BASE_URL ?>/pages/about.php">About</a>
+</div>
+
 <!-- Core JS loaded in header.php -->
 
 <!-- Page-specific JS -->
