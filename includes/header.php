@@ -103,6 +103,11 @@ if (isLoggedIn()) {
 
   <!-- Core JS (loaded early so inline page scripts can use utils) -->
   <script src="<?= BASE_URL ?>/assets/js/utils.js"></script>
+
+  <!-- Dark mode: apply early to prevent FOUC -->
+  <script>
+  (function(){var t=localStorage.getItem('mediqueue-theme');if(t==='dark')document.documentElement.classList.add('dark');})();
+  </script>
 </head>
 <body>
 

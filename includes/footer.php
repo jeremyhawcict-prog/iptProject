@@ -177,13 +177,14 @@
 (function(){
   var THEME_KEY = 'mediqueue-theme';
   var saved = localStorage.getItem(THEME_KEY);
-  if (saved === 'dark') document.body.classList.add('dark');
+  if (saved === 'dark') { document.body.classList.add('dark'); document.documentElement.classList.add('dark'); }
 
   document.addEventListener('click', function(e){
     var btn = e.target.closest('#dark-mode-toggle, [data-toggle-dark]');
     if (!btn) return;
-    document.body.classList.toggle('dark');
-    localStorage.setItem(THEME_KEY, document.body.classList.contains('dark') ? 'dark' : 'light');
+    var isDark = document.body.classList.toggle('dark');
+    document.documentElement.classList.toggle('dark', isDark);
+    localStorage.setItem(THEME_KEY, isDark ? 'dark' : 'light');
   });
 
   function animateCounters(){
