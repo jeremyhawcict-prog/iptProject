@@ -21,7 +21,7 @@ if (MQ_DEBUG) {
     ini_set('display_errors', '0');
 }
 
-// ── Database credentials ──────────────────────────────────
+// ── Database credentials inorder to connect to byethost ──────────────────────────────────
 // ByetHost typically uses "sql_server" — verify in your control panel.
 define('DB_HOST', 'sql200.byethost31.com');   // ← change to your ByetHost DB host
 define('DB_NAME', 'b31_41481208_MQDB');    // ← change to your ByetHost DB name
