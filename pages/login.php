@@ -1,28 +1,14 @@
-﻿<?php
-$pageTitle = 'Sign In';
+<?php
+$pageTitle  = 'Sign In';
+$isAuthPage = true;
 require_once __DIR__ . '/../includes/config.php';
 require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../includes/functions.php';
 
 if (isLoggedIn()) { header('Location: ' . getRedirectByRole()); exit; }
+
+require_once __DIR__ . '/../includes/header.php';
 ?>
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>MediQueue &mdash; Sign In</title>
-<meta name="csrf-token" content="<?= getCsrfToken() ?>" />
-<meta name="base-url" content="<?= BASE_URL ?>" />
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
-<link rel="stylesheet" href="<?= BASE_URL ?>/assets/css/global.css" />
-</head>
-<body>
-<canvas id="particleCanvas"></canvas>
-<div class="bg-mesh"></div>
-<div class="bg-blob blob-1"></div><div class="bg-blob blob-2"></div><div class="bg-blob blob-3"></div><div class="bg-blob blob-4"></div><div class="bg-blob blob-5"></div>
 
 <div class="container">
   <div class="login-card">
@@ -121,7 +107,6 @@ if (isLoggedIn()) { header('Location: ' . getRedirectByRole()); exit; }
   </div>
 </div>
 
-<script src="<?= BASE_URL ?>/assets/js/utils.js"></script>
 <script>
 (function(){
   // Password toggle
@@ -143,7 +128,7 @@ if (isLoggedIn()) { header('Location: ' . getRedirectByRole()); exit; }
 
     var btn = document.getElementById('loginBtn');
     btn.disabled = true;
-    btn.querySelector('.btn-text').textContent = 'Signing in…';
+    btn.querySelector('.btn-text').textContent = 'Signing in\u2026';
 
     utils.apiPost(utils.apiUrl('auth/login.php'), {email: email, password: password}, function(err, data){
       btn.disabled = false;
@@ -158,59 +143,4 @@ if (isLoggedIn()) { header('Location: ' . getRedirectByRole()); exit; }
 })();
 </script>
 
-<!-- Particle System -->
-<script>
-(function(){
-  var canvas = document.getElementById('particleCanvas');
-  if (!canvas) return;
-  var ctx = canvas.getContext('2d');
-  var particles = [];
-  var PARTICLE_COUNT = 70;
-  var CONNECTION_DIST = 120;
-
-  function resizeCanvas(){ canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
-  function Particle(){
-    this.x = Math.random() * canvas.width; this.y = Math.random() * canvas.height;
-    this.size = Math.random() * 1.6 + 0.4;
-    this.vx = (Math.random() - 0.5) * 0.3; this.vy = (Math.random() - 0.5) * 0.3 - 0.06;
-    this.opacity = Math.random() * 0.25 + 0.06; this.targetO = Math.random() * 0.25 + 0.06;
-    this.fadeSpd = Math.random() * 0.005 + 0.002;
-    this.color = 'hsl(' + (200 + Math.random() * 20) + ', 55%, 84%)';
-  }
-  Particle.prototype.update = function(){
-    this.x += this.vx; this.y += this.vy;
-    if (this.opacity < this.targetO) this.opacity += this.fadeSpd;
-    else { this.opacity -= this.fadeSpd; if (this.opacity <= 0.04) this.targetO = Math.random() * 0.4 + 0.06; }
-    if (this.y < -10) this.y = canvas.height + 10; if (this.x < -10) this.x = canvas.width + 10;
-    if (this.x > canvas.width + 10) this.x = -10; if (this.y > canvas.height + 10) this.y = -10;
-  };
-  Particle.prototype.draw = function(){
-    ctx.save(); ctx.globalAlpha = Math.max(0, this.opacity); ctx.fillStyle = this.color;
-    ctx.beginPath(); ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2); ctx.fill(); ctx.restore();
-  };
-  function init(){ particles = []; for (var i = 0; i < PARTICLE_COUNT; i++) particles.push(new Particle()); }
-  function drawConnections(){
-    for (var i = 0; i < particles.length; i++){
-      for (var j = i + 1; j < particles.length; j++){
-        var dx = particles[i].x - particles[j].x, dy = particles[i].y - particles[j].y;
-        var dist = Math.sqrt(dx * dx + dy * dy);
-        if (dist < CONNECTION_DIST){
-          ctx.save(); ctx.globalAlpha = (1 - dist / CONNECTION_DIST) * 0.04;
-          ctx.strokeStyle = 'rgba(210,235,250,0.6)'; ctx.lineWidth = 0.5;
-          ctx.beginPath(); ctx.moveTo(particles[i].x, particles[i].y); ctx.lineTo(particles[j].x, particles[j].y); ctx.stroke();
-          ctx.restore();
-        }
-      }
-    }
-  }
-  function animate(){
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    for (var i = 0; i < particles.length; i++){ particles[i].update(); particles[i].draw(); }
-    drawConnections(); requestAnimationFrame(animate);
-  }
-  window.addEventListener('resize', function(){ resizeCanvas(); init(); });
-  resizeCanvas(); init(); animate();
-})();
-</script>
-</body>
-</html>
+<?php require_once __DIR__ . '/../includes/footer.php'; ?>

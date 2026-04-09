@@ -9,10 +9,11 @@ require_once __DIR__ . '/auth.php';
 require_once __DIR__ . '/functions.php';
 
 // Defaults
-$pageTitle = $pageTitle ?? 'MediQueue';
-$pageCSS   = $pageCSS   ?? [];
-$user      = isLoggedIn() ? getCurrentUser() : null;
-$role      = $_SESSION['user_role'] ?? '';
+$pageTitle  = $pageTitle  ?? 'MediQueue';
+$pageCSS    = $pageCSS    ?? [];
+$isAuthPage = $isAuthPage ?? false;
+$user       = isLoggedIn() ? getCurrentUser() : null;
+$role       = $_SESSION['user_role'] ?? '';
 
 // Build user initials for the avatar circle
 $userInitials = '';
@@ -287,7 +288,7 @@ if (isLoggedIn()) {
 
     <!-- Main Content Area -->
     <div class="dashboard-main">
-<?php else: ?>
+<?php elseif (!$isAuthPage): ?>
 <!-- ========== PUBLIC PAGE LAYOUT ========== -->
 <main class="main-content">
 <div class="page-content">

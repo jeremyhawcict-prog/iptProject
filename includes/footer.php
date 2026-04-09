@@ -1,7 +1,9 @@
-<?php if (isLoggedIn()): ?>
+<?php
+$isAuthPage = $isAuthPage ?? false;
+if (isLoggedIn()): ?>
     </div><!-- /.dashboard-main -->
 </div><!-- /.dashboard-wrapper -->
-<?php else: ?>
+<?php elseif (!$isAuthPage): ?>
       </div><!-- /.page-content -->
 </main>
 <?php endif; ?>

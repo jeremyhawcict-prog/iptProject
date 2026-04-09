@@ -1,24 +1,14 @@
 <?php
-$pageTitle = 'Create Account';
+$pageTitle  = 'Create Account';
+$isAuthPage = true;
 require_once __DIR__ . '/../includes/config.php';
 require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../includes/functions.php';
+
 if (isLoggedIn()) { header('Location: ' . getRedirectByRole()); exit; }
+
+require_once __DIR__ . '/../includes/header.php';
 ?>
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>MediQueue &mdash; Create Account</title>
-<meta name="csrf-token" content="<?= getCsrfToken() ?>" /><meta name="base-url" content="<?= BASE_URL ?>" />
-<link rel="preconnect" href="https://fonts.googleapis.com" /><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
-<link rel="stylesheet" href="<?= BASE_URL ?>/assets/css/global.css" />
-</head>
-<body>
-<canvas id="particleCanvas"></canvas>
-<div class="bg-mesh"></div>
-<div class="bg-blob blob-1"></div><div class="bg-blob blob-2"></div><div class="bg-blob blob-3"></div><div class="bg-blob blob-4"></div><div class="bg-blob blob-5"></div>
 
 <div class="container">
   <div class="login-card">
@@ -105,7 +95,6 @@ if (isLoggedIn()) { header('Location: ' . getRedirectByRole()); exit; }
   </div>
 </div>
 
-<script src="<?= BASE_URL ?>/assets/js/utils.js"></script>
 <script>
 (function(){
   var tabs = document.querySelectorAll('.reg-tab');
@@ -149,7 +138,7 @@ if (isLoggedIn()) { header('Location: ' . getRedirectByRole()); exit; }
     var name=document.getElementById('regName').value.trim();
     if(!name){ utils.showAlert('Full name is required.','warning'); return; }
     var btn=document.getElementById('regBtn');
-    btn.disabled=true; btn.querySelector('.btn-text').textContent='Creating…';
+    btn.disabled=true; btn.querySelector('.btn-text').textContent='Creating\u2026';
     utils.apiPost(utils.apiUrl('auth/register.php'),{
       email:document.getElementById('regEmail').value.trim(),
       password:document.getElementById('regPassword').value,
@@ -159,11 +148,11 @@ if (isLoggedIn()) { header('Location: ' . getRedirectByRole()); exit; }
     }, function(err,data){
       btn.disabled=false; btn.querySelector('.btn-text').textContent='Create Account';
       if(err||!data.success){ utils.showAlert(data?data.message:'Registration failed.','error'); return; }
-      utils.showAlert('Account created! Redirecting…','success');
+      utils.showAlert('Account created! Redirecting\u2026','success');
       setTimeout(function(){ window.location.href=data.data.redirect||'<?= BASE_URL ?>/pages/patient/dashboard.php'; },1500);
     });
   });
 })();
 </script>
-</body>
-</html>
+
+<?php require_once __DIR__ . '/../includes/footer.php'; ?>
