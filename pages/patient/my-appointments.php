@@ -87,6 +87,7 @@ requireRole(['patient']);
 <script>
 (function(){
   var currentPage = 1, currentStatus = '', reschSlotId = null, fbRating = 0;
+  var knownStatusById = {};
   var badgeMap = {pending:'badge-warning',confirmed:'badge-success',completed:'badge-primary',cancelled:'badge-danger',rescheduled:'badge-info',in_progress:'badge-info',no_show:'badge-danger'};
 
   function loadAppts(page){
@@ -101,6 +102,14 @@ requireRole(['patient']);
       }
       tb.innerHTML='';
       data.data.appointments.forEach(function(a,i){
+        var previousStatus = knownStatusById[a.id];
+        if(previousStatus && previousStatus !== a.status) {
+          if(previousStatus === 'pending' && a.status === 'confirmed') {
+            utils.showToast('One of your appointments has been confirmed.', 'success', 5000);
+          }
+        }
+        knownStatusById[a.id] = a.status;
+
         var row = '<tr>'
           +'<td>'+(data.data.pagination?((data.data.pagination.current_page-1)*data.data.pagination.per_page+i+1):(i+1))+'</td>'
           +'<td>Dr. '+utils.escapeHtml(a.doctor_name||'—')+'</td>'
@@ -232,6 +241,12 @@ requireRole(['patient']);
   };
 
   loadAppts(1);
+  setInterval(function(){
+    if(!document.hidden) loadAppts(currentPage);
+  }, 10000);
+  document.addEventListener('mq:notification:new', function(){
+    loadAppts(currentPage);
+  });
 })();
 </script>
 <?php require_once ROOT_PATH . '/includes/footer.php'; ?>

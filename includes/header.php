@@ -348,22 +348,108 @@ if (isLoggedIn()) {
     /* ── Notification bell polling ── */
     var badge = document.getElementById('notif-badge');
     if (badge) {
+        var currentUnreadCount = null;
+        var notifUserId = <?= (int) ($_SESSION['user_id'] ?? 0) ?>;
+        var latestNotifKey = 'mq:last-notif-id:' + notifUserId;
+
+        function badgeText(count) {
+            return count > 99 ? '99+' : String(count);
+        }
+
+        function setBadge(count) {
+            if (count > 0) {
+                badge.textContent = badgeText(count);
+                badge.style.display = 'flex';
+            } else {
+                badge.style.display = 'none';
+            }
+        }
+
+        function emitNewNotifEvent(notification, count) {
+            if (typeof CustomEvent !== 'function') return;
+            document.dispatchEvent(new CustomEvent('mq:notification:new', {
+                detail: { notification: notification || null, unread_count: count || 0 }
+            }));
+        }
+
+        function getRememberedNotifId() {
+            try {
+                return parseInt(localStorage.getItem(latestNotifKey) || '0', 10) || 0;
+            } catch (e) {
+                return 0;
+            }
+        }
+
+        function rememberNotifId(id) {
+            if (!id) return;
+            try {
+                localStorage.setItem(latestNotifKey, String(id));
+            } catch (e) {}
+        }
+
+        function syncLatestUnread(baseUrl, showToastForNew, unreadCount) {
+            fetch(baseUrl + '/api/notifications/list.php?unread=1&per_page=1', { credentials: 'same-origin' })
+                .then(function (r) { return r.json(); })
+                .then(function (d) {
+                    if (!d || !d.success || !d.data || !d.data.notifications || !d.data.notifications.length) {
+                        return;
+                    }
+
+                    var latest = d.data.notifications[0];
+                    var latestId = parseInt(latest.id, 10) || 0;
+                    if (!latestId) return;
+
+                    var rememberedId = getRememberedNotifId();
+                    if (rememberedId === 0) {
+                        rememberNotifId(latestId);
+                        return;
+                    }
+
+                    if (latestId > rememberedId) {
+                        rememberNotifId(latestId);
+                        if (showToastForNew && window.utils && typeof window.utils.showToast === 'function') {
+                            var toastMsg = (latest.subject ? latest.subject + ': ' : '')
+                                + (latest.message || 'You have a new notification.');
+                            window.utils.showToast(toastMsg, 'info', 5000);
+                        }
+                        emitNewNotifEvent(latest, unreadCount);
+                    }
+                })
+                .catch(function () {});
+        }
+
         function pollNotifs() {
             var base = document.querySelector('meta[name="base-url"]');
             if (!base) return;
             fetch(base.content + '/api/notifications/count.php', { credentials: 'same-origin' })
                 .then(function (r) { return r.json(); })
                 .then(function (d) {
-                    if (d.success && d.data && d.data.count > 0) {
-                        badge.textContent = d.data.count;
-                        badge.style.display = 'flex';
-                    } else {
-                        badge.style.display = 'none';
+                    var unreadCount = (d && d.success && d.data) ? (parseInt(d.data.count, 10) || 0) : 0;
+                    setBadge(unreadCount);
+
+                    if (currentUnreadCount === null) {
+                        currentUnreadCount = unreadCount;
+                        if (unreadCount > 0) {
+                            syncLatestUnread(base.content, false, unreadCount);
+                        }
+                        return;
                     }
+
+                    if (unreadCount > currentUnreadCount) {
+                        syncLatestUnread(base.content, true, unreadCount);
+                    }
+
+                    currentUnreadCount = unreadCount;
                 }).catch(function () {});
         }
+
         pollNotifs();
-        setInterval(pollNotifs, 30000);
+        setInterval(function () {
+            if (!document.hidden) pollNotifs();
+        }, 8000);
+        document.addEventListener('visibilitychange', function () {
+            if (!document.hidden) pollNotifs();
+        });
     }
 })();
 </script>

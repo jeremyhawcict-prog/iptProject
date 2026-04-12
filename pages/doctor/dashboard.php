@@ -84,6 +84,11 @@ $upcomingAppts = $stmtUpcoming->fetchAll();
   }
   if(typeof utils!=='undefined' && utils.apiGet) loadNotifications();
   else document.addEventListener('DOMContentLoaded', loadNotifications);
+
+  setInterval(function(){
+    if(!document.hidden) loadNotifications();
+  }, 10000);
+  document.addEventListener('mq:notification:new', loadNotifications);
 })();
 </script>
 

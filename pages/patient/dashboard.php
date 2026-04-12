@@ -69,12 +69,12 @@ $records = $stmt->fetchAll();
       <thead><tr><th>Date</th><th>Time</th><th>Doctor</th><th>Specialization</th><th>Status</th><th>Actions</th></tr></thead>
       <tbody>
       <?php foreach ($upcoming as $a): ?>
-      <tr>
+      <tr data-appt-id="<?= (int) $a['id'] ?>" data-appt-status="<?= htmlspecialchars($a['status']) ?>">
         <td><?= formatDate($a['slot_date']) ?></td>
         <td><?= formatTime($a['start_time']) ?> - <?= formatTime($a['end_time']) ?></td>
         <td>Dr. <?= htmlspecialchars($a['doctor_name']) ?></td>
         <td><?= htmlspecialchars($a['specialization'] ?? '-') ?></td>
-        <td><span class="badge badge-<?= $a['status']==='confirmed'?'success':'warning' ?>"><?= ucfirst($a['status']) ?></span></td>
+        <td><span class="badge <?= $a['status'] === 'confirmed' ? 'badge-success' : 'badge-warning' ?> js-appt-status-badge"><?= ucfirst(str_replace('_', ' ', $a['status'])) ?></span></td>
         <td style="display:flex;gap:6px;">
           <button class="btn btn-sm btn-secondary reschedule-btn" data-id="<?= $a['id'] ?>"><i class="fa-solid fa-calendar-pen"></i></button>
           <button class="btn btn-sm btn-danger cancel-btn" data-id="<?= $a['id'] ?>"><i class="fa-solid fa-xmark"></i></button>
@@ -128,6 +128,53 @@ $records = $stmt->fetchAll();
 
 <script>
 (function(){
+  function statusLabel(status){
+    if(!status) return 'Unknown';
+    var text = String(status).replace(/_/g, ' ');
+    return text.charAt(0).toUpperCase() + text.slice(1);
+  }
+
+  function statusClass(status){
+    var map = {
+      pending: 'badge-warning',
+      confirmed: 'badge-success',
+      in_progress: 'badge-info',
+      completed: 'badge-primary',
+      cancelled: 'badge-danger',
+      no_show: 'badge-danger',
+      rescheduled: 'badge-info'
+    };
+    return map[status] || 'badge-info';
+  }
+
+  function refreshUpcomingStatuses(){
+    document.querySelectorAll('tr[data-appt-id]').forEach(function(row){
+      var appointmentId = parseInt(row.getAttribute('data-appt-id'), 10);
+      if(!appointmentId) return;
+
+      utils.apiGet(utils.apiUrl('appointments/get.php'), {id: appointmentId}, function(err, data){
+        if(err || !data || !data.success || !data.data || !data.data.appointment) return;
+
+        var latestStatus = data.data.appointment.status || '';
+        var previousStatus = row.getAttribute('data-appt-status') || '';
+        if(!latestStatus || latestStatus === previousStatus) return;
+
+        row.setAttribute('data-appt-status', latestStatus);
+        var badge = row.querySelector('.js-appt-status-badge');
+        if(badge){
+          badge.className = 'badge ' + statusClass(latestStatus) + ' js-appt-status-badge';
+          badge.textContent = statusLabel(latestStatus);
+        }
+
+        if(previousStatus === 'pending' && latestStatus === 'confirmed') {
+          utils.showToast('Your appointment is now confirmed.', 'success', 5000);
+        } else {
+          utils.showToast('Appointment status updated to ' + statusLabel(latestStatus) + '.', 'info', 4500);
+        }
+      });
+    });
+  }
+
   // Cancel appointment
   document.querySelectorAll('.cancel-btn').forEach(function(btn){
     btn.addEventListener('click', function(){
@@ -187,6 +234,12 @@ $records = $stmt->fetchAll();
       else utils.showToast(data?data.message:'Failed.','error');
     });
   });
+
+  refreshUpcomingStatuses();
+  setInterval(function(){
+    if(!document.hidden) refreshUpcomingStatuses();
+  }, 8000);
+  document.addEventListener('mq:notification:new', refreshUpcomingStatuses);
 })();
 </script>
 <?php require_once ROOT_PATH . '/includes/footer.php'; ?>

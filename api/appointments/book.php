@@ -91,7 +91,35 @@ try {
     $patient     = getUserById($patientId);
     $doctor      = getUserById($doctorId);
 
-    // 6. Send email notifications (failure must NOT break the booking)
+    // 6. Create in-app notification for the doctor (patient -> doctor flow)
+    $doctorNotifId = createSystemNotification(
+        $doctorId,
+        'New Appointment Booking',
+        trim((string) ($patient['full_name'] ?? 'A patient'))
+            . ' booked an appointment for '
+            . formatDate($slotDate)
+            . ' at '
+            . formatTime($startTime)
+            . '.',
+        $appointmentId
+    );
+    if ($doctorNotifId) {
+        logAudit(
+            'notification_dispatched',
+            'notification',
+            $doctorNotifId,
+            'Doctor notification sent to user #' . $doctorId . ' for appointment #' . $appointmentId
+        );
+    } else {
+        logAudit(
+            'notification_dispatch_failed',
+            'notification',
+            null,
+            'Failed to notify doctor user #' . $doctorId . ' for appointment #' . $appointmentId
+        );
+    }
+
+    // 7. Send email notifications (failure must NOT break the booking)
     try {
         $html = emailAppointmentConfirmation($appointment, $patient, $doctor, 'pending');
         sendMail($patient['email'], 'Appointment Booked — MediQueue', $html);
@@ -106,6 +134,7 @@ try {
         'date'           => formatDate($slotDate),
         'time'           => formatTime($startTime),
         'status'         => 'pending',
+        'notification_sent_to_doctor' => (bool) $doctorNotifId,
     ], 'Appointment booked successfully.', 201);
 
 } catch (\Throwable $e) {

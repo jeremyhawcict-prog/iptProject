@@ -148,6 +148,34 @@ try {
             $appointment['status'] = 'confirmed';
             $db->commit();
 
+            $doctorDisplayName = trim((string) ($doctor['full_name'] ?? 'Doctor'));
+            $doctorDisplayName = preg_replace('/^dr\.?\s+/i', '', $doctorDisplayName) ?: $doctorDisplayName;
+            $patientNotifMessage = 'Dr. ' . $doctorDisplayName
+                . ' has accepted your appointment! Please be reminded of your scheduled time.';
+
+            $patientNotifId = createSystemNotification(
+                $patientId,
+                'Appointment Accepted',
+                $patientNotifMessage,
+                $appointmentId
+            );
+
+            if ($patientNotifId) {
+                logAudit(
+                    'notification_dispatched',
+                    'notification',
+                    $patientNotifId,
+                    'Patient notification sent to user #' . $patientId . ' for appointment #' . $appointmentId
+                );
+            } else {
+                logAudit(
+                    'notification_dispatch_failed',
+                    'notification',
+                    null,
+                    'Failed to notify patient user #' . $patientId . ' for appointment #' . $appointmentId
+                );
+            }
+
             try {
                 $html = emailAppointmentConfirmation($appointment, $patient, $doctor, 'confirmed');
                 sendMail($patient['email'], 'Appointment Confirmed — MediQueue', $html);
@@ -156,7 +184,11 @@ try {
                 error_log('[MediQueue] Email error (confirm #' . $appointmentId . '): ' . $e->getMessage());
             }
 
-            jsonSuccess(['appointment_id' => $appointmentId, 'status' => 'confirmed'], 'Appointment confirmed.');
+            jsonSuccess([
+                'appointment_id' => $appointmentId,
+                'status'         => 'confirmed',
+                'notification_sent_to_patient' => (bool) $patientNotifId,
+            ], 'Appointment confirmed.');
             break;
 
         /* ── CANCEL ──────────────────────────────────────── */

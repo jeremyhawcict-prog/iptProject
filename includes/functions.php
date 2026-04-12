@@ -148,6 +148,42 @@ function logAudit(
     }
 }
 
+/**
+ * Create an in-app system notification and mark it as sent.
+ * Returns the created notification ID, or null on failure.
+ */
+function createSystemNotification(
+    int $userId,
+    string $subject,
+    string $message,
+    ?int $appointmentId = null
+): ?int {
+    if ($userId <= 0 || trim($subject) === '' || trim($message) === '') {
+        return null;
+    }
+
+    try {
+        $db = getDB();
+        $stmt = $db->prepare(
+            'INSERT INTO notifications (user_id, appointment_id, type, subject, message, status, sent_at, created_at)
+             VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())'
+        );
+        $stmt->execute([
+            $userId,
+            $appointmentId ?: null,
+            'system',
+            $subject,
+            $message,
+            'sent',
+        ]);
+
+        return (int) $db->lastInsertId();
+    } catch (\Throwable $e) {
+        error_log('[MediQueue] Notification insert failed: ' . $e->getMessage());
+        return null;
+    }
+}
+
 /* ──────────────────────────────────────────────────────────
    Database Lookup Helpers
    ────────────────────────────────────────────────────────── */
