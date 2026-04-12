@@ -25,6 +25,24 @@ requireRole(['admin']);
 
   <!-- Overview Tab -->
   <div id="tabOverview" class="report-panel">
+    <div id="overviewStats" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-bottom:20px;">
+      <div class="card-glass" style="padding:16px;text-align:center;">
+        <div style="font-size:1.8rem;font-weight:700;color:var(--teal-core);" id="stat-total-appts">—</div>
+        <div class="text-muted text-sm">Total Appointments</div>
+      </div>
+      <div class="card-glass" style="padding:16px;text-align:center;">
+        <div style="font-size:1.8rem;font-weight:700;color:#10B981;" id="stat-completed">—</div>
+        <div class="text-muted text-sm">Completed</div>
+      </div>
+      <div class="card-glass" style="padding:16px;text-align:center;">
+        <div style="font-size:1.8rem;font-weight:700;color:#3D6A8A;" id="stat-total-docs">—</div>
+        <div class="text-muted text-sm">Active Doctors</div>
+      </div>
+      <div class="card-glass" style="padding:16px;text-align:center;">
+        <div style="font-size:1.8rem;font-weight:700;color:#8B5CF6;" id="stat-total-patients">—</div>
+        <div class="text-muted text-sm">Registered Patients</div>
+      </div>
+    </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px;">
       <div class="card-glass" style="padding:16px;"><h4 style="margin:0 0 12px;font-size:.95rem;"><i class="fa-solid fa-chart-column" style="color:var(--teal-core);margin-right:6px;"></i>Monthly Appointments</h4><div style="position:relative;height:220px;"><canvas id="monthlyChart"></canvas></div></div>
       <div class="card-glass" style="padding:16px;display:flex;flex-direction:column;align-items:center;"><h4 style="margin:0 0 12px;font-size:.95rem;align-self:flex-start;"><i class="fa-solid fa-chart-pie" style="color:var(--teal-core);margin-right:6px;"></i>Specialization Distribution</h4><div style="position:relative;width:100%;max-width:200px;"><canvas id="specChart"></canvas></div></div>
@@ -84,6 +102,18 @@ requireRole(['admin']);
       this.classList.add('active');
       document.querySelectorAll('.report-panel').forEach(function(p){p.style.display='none';});
       document.getElementById('tab'+this.dataset.tab.charAt(0).toUpperCase()+this.dataset.tab.slice(1)).style.display='';
+
+      // Auto-load appointments tab with current month on first open
+      if (this.dataset.tab === 'appointments' && !window._apptTabLoaded) {
+        window._apptTabLoaded = true;
+        var now = new Date();
+        var y = now.getFullYear();
+        var m = String(now.getMonth() + 1).padStart(2, '0');
+        var lastDay = new Date(y, now.getMonth() + 1, 0).getDate();
+        document.getElementById('rptDateFrom').value = y + '-' + m + '-01';
+        document.getElementById('rptDateTo').value   = y + '-' + m + '-' + String(lastDay).padStart(2, '0');
+        window.loadApptReport();
+      }
     });
   });
 
@@ -92,8 +122,22 @@ requireRole(['admin']);
     if(!data||!data.success) return;
     var d=data.data;
 
+    // Populate total appointments stat from monthly sum
+    var totalAppts = 0;
+    if (d.monthly) d.monthly.forEach(function(m) { totalAppts += parseInt(m.count, 10) || 0; });
+    var statEl = document.getElementById('stat-total-appts');
+    if (statEl) statEl.textContent = totalAppts;
+
+    // Fetch completed stat
+    utils.apiGet(utils.apiUrl('reports/appointments.php'), {}, function(err2, data2) {
+      if (data2 && data2.success) {
+        var compEl = document.getElementById('stat-completed');
+        if (compEl) compEl.textContent = data2.data.completed || 0;
+      }
+    });
+
     // Monthly Chart (bar with gradient feel)
-    if(d.monthly){
+    if(d.monthly && d.monthly.length){
       new Chart(document.getElementById('monthlyChart'),{
         type:'bar',
         data:{labels:d.monthly.map(function(m){return m.month;}),datasets:[{
@@ -103,10 +147,13 @@ requireRole(['admin']);
         }]},
         options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{backgroundColor:'rgba(15,25,40,.88)',padding:12,cornerRadius:8,boxPadding:4}},scales:{y:{beginAtZero:true,ticks:{stepSize:1,padding:8},grid:{color:'rgba(138,174,199,.08)',drawBorder:false},border:{display:false}},x:{grid:{display:false},border:{display:false}}}}
       });
+    } else {
+      document.getElementById('monthlyChart').parentElement.innerHTML =
+        '<p class="text-muted text-center" style="padding:40px 0;">No appointment data available yet.</p>';
     }
 
     // Specialization Chart (doughnut)
-    if(d.specializations){
+    if(d.specializations && d.specializations.length){
       new Chart(document.getElementById('specChart'),{
         type:'doughnut',
         data:{labels:d.specializations.map(function(s){return s.specialization||'General';}),datasets:[{
@@ -116,10 +163,13 @@ requireRole(['admin']);
         }]},
         options:{responsive:true,maintainAspectRatio:true,cutout:'60%',plugins:{legend:{position:'bottom',labels:{usePointStyle:true,pointStyle:'circle',padding:12,font:{size:11,weight:'500'}}},tooltip:{backgroundColor:'rgba(15,25,40,.88)',padding:12,cornerRadius:8,boxPadding:4,callbacks:{label:function(ctx){var total=ctx.dataset.data.reduce(function(a,b){return a+b;},0);var pct=total?Math.round(ctx.raw/total*100):0;return ' '+ctx.label+': '+ctx.raw+' ('+pct+'%)';}}}}}
       });
+    } else {
+      document.getElementById('specChart').parentElement.innerHTML =
+        '<p class="text-muted text-center" style="padding:40px 0;">No specialization data yet.</p>';
     }
 
     // Daily Chart (area line)
-    if(d.daily){
+    if(d.daily && d.daily.length){
       new Chart(document.getElementById('dailyChart'),{
         type:'line',
         data:{labels:d.daily.map(function(x){return x.date;}),datasets:[{
@@ -129,6 +179,9 @@ requireRole(['admin']);
         }]},
         options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{display:false},tooltip:{backgroundColor:'rgba(15,25,40,.88)',padding:12,cornerRadius:8}},scales:{y:{beginAtZero:true,ticks:{stepSize:1,padding:8},grid:{color:'rgba(138,174,199,.08)',drawBorder:false},border:{display:false}},x:{grid:{display:false},border:{display:false},ticks:{maxTicksLimit:10}}}}
       });
+    } else {
+      document.getElementById('dailyChart').parentElement.innerHTML =
+        '<p class="text-muted text-center" style="padding:40px 0;">No daily data for the last 30 days.</p>';
     }
   });
 
@@ -139,6 +192,12 @@ requireRole(['admin']);
     (data.data.doctors||[]).forEach(function(d){
       tb.insertAdjacentHTML('beforeend','<tr><td>Dr. '+utils.escapeHtml(d.full_name)+'</td><td>'+utils.escapeHtml(d.specialization||'—')+'</td><td>'+d.total_appointments+'</td><td>'+d.completed+'</td><td>'+(d.avg_rating?'<span style="color:#F59E0B;">'+parseFloat(d.avg_rating).toFixed(1)+' ★</span>':'<span class="text-muted">—</span>')+'</td></tr>');
     });
+    if (!(data.data.doctors || []).length) {
+      document.getElementById('doctorReportBody').innerHTML =
+        '<tr><td colspan="5" class="text-center text-muted" style="padding:24px;">No doctor data available.</td></tr>';
+    }
+    var docStatEl = document.getElementById('stat-total-docs');
+    if (docStatEl) docStatEl.textContent = (data.data.doctors || []).length;
   });
 
   // ── APPOINTMENTS REPORT ──
@@ -171,9 +230,17 @@ requireRole(['admin']);
     if(!data||!data.success) return;
     var d=data.data;
     var el=document.getElementById('patientStats');
-    el.innerHTML='<div class="card-glass stat-card" style="padding:14px;"><div class="stat-value">'+d.total_patients+'</div><div class="stat-label">Total Patients</div></div>'
-      +'<div class="card-glass stat-card" style="padding:14px;"><div class="stat-value">'+d.active_patients+'</div><div class="stat-label">Active (with appts)</div></div>'
-      +'<div class="card-glass stat-card" style="padding:14px;"><div class="stat-value">'+(d.avg_age||'—')+'</div><div class="stat-label">Avg Age</div></div>';
+    el.innerHTML='<div class="card-glass" style="padding:16px;text-align:center;">'
+      +'<div style="font-size:1.8rem;font-weight:700;color:var(--teal-core);">'+(d.total_patients||0)+'</div>'
+      +'<div class="text-muted text-sm">Total Patients</div></div>'
+      +'<div class="card-glass" style="padding:16px;text-align:center;">'
+      +'<div style="font-size:1.8rem;font-weight:700;color:#10B981;">'+(d.active_patients||0)+'</div>'
+      +'<div class="text-muted text-sm">Active Patients</div></div>'
+      +'<div class="card-glass" style="padding:16px;text-align:center;">'
+      +'<div style="font-size:1.8rem;font-weight:700;color:#8B5CF6;">'+(d.avg_age > 0 ? d.avg_age : '—')+'</div>'
+      +'<div class="text-muted text-sm">Avg. Age</div></div>';
+    var patStatEl = document.getElementById('stat-total-patients');
+    if (patStatEl) patStatEl.textContent = d.total_patients || 0;
     if(d.registrations){
       new Chart(document.getElementById('regChart'),{
         type:'line',data:{labels:d.registrations.map(function(r){return r.month;}),datasets:[{
