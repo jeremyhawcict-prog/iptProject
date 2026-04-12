@@ -15,14 +15,69 @@ require_once __DIR__ . '/../../../includes/api_guard.php';
 
 guardApi('POST', true, true, ['doctor', 'staff', 'admin']);
 
+$input          = getJsonInput();
 $doctorId       = getPostInt('doctor_id');
-$fromDate       = getPostString('from_date');
-$toDate         = getPostString('to_date');
-$startHour      = getPostInt('start_hour', 9);
-$endHour        = getPostInt('end_hour', 17);
-$slotDuration   = getPostInt('slot_duration', 30);
+$fromDate       = getPostString('from_date') ?: getPostString('start_date');
+$toDate         = getPostString('to_date') ?: getPostString('end_date');
+$startHour      = getPostInt('start_hour', -1);
+$endHour        = getPostInt('end_hour', -1);
+$startTime      = getPostString('start_time');
+$endTime        = getPostString('end_time');
+$slotDuration   = getPostInt('slot_duration', getPostInt('duration', 30));
 $breakStartHour = getPostInt('break_start_hour', 12);
 $breakEndHour   = getPostInt('break_end_hour', 13);
+
+/**
+ * Normalize weekday input to lowercase full names.
+ * Accepts full names and common 3-letter abbreviations.
+ */
+$normalizeWeekdays = static function ($value): array {
+    $map = [
+        'monday' => 'monday', 'mon' => 'monday',
+        'tuesday' => 'tuesday', 'tue' => 'tuesday', 'tues' => 'tuesday',
+        'wednesday' => 'wednesday', 'wed' => 'wednesday',
+        'thursday' => 'thursday', 'thu' => 'thursday', 'thurs' => 'thursday',
+        'friday' => 'friday', 'fri' => 'friday',
+        'saturday' => 'saturday', 'sat' => 'saturday',
+        'sunday' => 'sunday', 'sun' => 'sunday',
+    ];
+
+    $items = [];
+    if (is_array($value)) {
+        $items = $value;
+    } elseif (is_string($value) && trim($value) !== '') {
+        $items = explode(',', $value);
+    }
+
+    $result = [];
+    foreach ($items as $item) {
+        $key = strtolower(trim((string) $item));
+        if ($key !== '' && isset($map[$key])) {
+            $result[] = $map[$key];
+        }
+    }
+
+    return array_values(array_unique($result));
+};
+
+$parseTimeToMinutes = static function (string $time): int {
+    $parts = explode(':', $time);
+    $h = isset($parts[0]) ? (int) $parts[0] : 0;
+    $m = isset($parts[1]) ? (int) $parts[1] : 0;
+    return ($h * 60) + $m;
+};
+
+if ($startTime && isValidTime($startTime)) {
+    $startMinutes = $parseTimeToMinutes($startTime);
+} else {
+    $startMinutes = (($startHour >= 0 ? $startHour : 9) * 60);
+}
+
+if ($endTime && isValidTime($endTime)) {
+    $endMinutes = $parseTimeToMinutes($endTime);
+} else {
+    $endMinutes = (($endHour >= 0 ? $endHour : 17) * 60);
+}
 
 // ── Validation ───────────────────────────────────────────
 if (!$doctorId) {
@@ -37,8 +92,8 @@ if ($fromDate > $toDate) {
 if (!in_array($slotDuration, [15, 30, 60], true)) {
     jsonError('slot_duration must be 15, 30, or 60 minutes.', 400);
 }
-if ($startHour >= $endHour || $startHour < 0 || $endHour > 24) {
-    jsonError('Invalid start_hour / end_hour range.', 400);
+if ($startMinutes >= $endMinutes || $startMinutes < 0 || $endMinutes > (24 * 60)) {
+    jsonError('Invalid start/end time range.', 400);
 }
 
 // Verify doctor exists
@@ -48,6 +103,52 @@ if (!$doctor || $doctor['role'] !== 'doctor') {
 }
 
 $db = getDB();
+
+$selectedDays = $normalizeWeekdays($input['days'] ?? '');
+if (empty($selectedDays)) {
+    $dp = $db->prepare('SELECT available_days FROM doctor_profiles WHERE user_id = ? LIMIT 1');
+    $dp->execute([$doctorId]);
+    $dpRow = $dp->fetch();
+    if ($dpRow && !empty($dpRow['available_days'])) {
+        $raw = json_decode((string) $dpRow['available_days'], true);
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            $raw = (string) $dpRow['available_days'];
+        }
+        $selectedDays = $normalizeWeekdays($raw);
+    }
+}
+
+if (!empty($selectedDays)) {
+    $activeStatuses = "'pending','confirmed','in_progress'";
+    $dayPlaceholders = implode(',', array_fill(0, count($selectedDays), '?'));
+
+    // Disable future unbooked slots that do not match selected weekdays.
+    $disableSql =
+        "UPDATE time_slots ts
+         LEFT JOIN appointments a ON a.slot_id = ts.id AND a.status IN ($activeStatuses)
+         SET ts.is_available = 0
+         WHERE ts.doctor_id = ?
+           AND ts.slot_date >= ?
+           AND ts.slot_date <= ?
+           AND a.id IS NULL
+           AND LOWER(DAYNAME(ts.slot_date)) NOT IN ($dayPlaceholders)";
+    $disableParams = array_merge([$doctorId, $fromDate, $toDate], $selectedDays);
+    $db->prepare($disableSql)->execute($disableParams);
+
+    // Enable future unbooked slots that match selected weekdays.
+    $enableSql =
+        "UPDATE time_slots ts
+         LEFT JOIN appointments a ON a.slot_id = ts.id AND a.status IN ($activeStatuses)
+         SET ts.is_available = 1
+         WHERE ts.doctor_id = ?
+           AND ts.slot_date >= ?
+           AND ts.slot_date <= ?
+           AND a.id IS NULL
+           AND LOWER(DAYNAME(ts.slot_date)) IN ($dayPlaceholders)";
+    $enableParams = array_merge([$doctorId, $fromDate, $toDate], $selectedDays);
+    $db->prepare($enableSql)->execute($enableParams);
+}
+
 $insertStmt = $db->prepare(
     'INSERT IGNORE INTO time_slots (doctor_id, slot_date, start_time, end_time)
      VALUES (?, ?, ?, ?)'
@@ -62,28 +163,32 @@ $end->modify('+1 day'); // inclusive end
 while ($current < $end) {
     $dateStr = $current->format('Y-m-d');
 
+    if (!empty($selectedDays)) {
+        $weekday = strtolower($current->format('l'));
+        if (!in_array($weekday, $selectedDays, true)) {
+            $current->modify('+1 day');
+            continue;
+        }
+    }
+
     // Generate slots for this day
-    $hour   = $startHour;
-    $minute = 0;
+    $slotStartMinutes = $startMinutes;
 
     while (true) {
-        $slotStart = sprintf('%02d:%02d:00', $hour, $minute);
+        $slotEndMinutes = $slotStartMinutes + $slotDuration;
 
-        // Advance by slot_duration
-        $totalMin = $hour * 60 + $minute + $slotDuration;
-        $eHour    = intdiv($totalMin, 60);
-        $eMin     = $totalMin % 60;
-
-        if ($eHour > $endHour || ($eHour === $endHour && $eMin > 0)) {
+        if ($slotEndMinutes > $endMinutes) {
             break; // past end_hour
         }
 
-        $slotEnd = sprintf('%02d:%02d:00', $eHour, $eMin);
+        $slotStart = sprintf('%02d:%02d:00', intdiv($slotStartMinutes, 60), $slotStartMinutes % 60);
+        $slotEnd   = sprintf('%02d:%02d:00', intdiv($slotEndMinutes, 60), $slotEndMinutes % 60);
 
         // Skip if slot falls within break window
-        if ($hour >= $breakStartHour && $hour < $breakEndHour) {
-            $hour   = $eHour;
-            $minute = $eMin;
+        $breakStartMinutes = $breakStartHour * 60;
+        $breakEndMinutes   = $breakEndHour * 60;
+        if ($slotStartMinutes >= $breakStartMinutes && $slotStartMinutes < $breakEndMinutes) {
+            $slotStartMinutes = $slotEndMinutes;
             continue;
         }
 
@@ -94,8 +199,7 @@ while ($current < $end) {
             $skipped++;
         }
 
-        $hour   = $eHour;
-        $minute = $eMin;
+        $slotStartMinutes = $slotEndMinutes;
     }
 
     $current->modify('+1 day');
@@ -105,6 +209,7 @@ jsonSuccess([
     'doctor_id' => $doctorId,
     'from_date' => $fromDate,
     'to_date'   => $toDate,
+    'days'      => $selectedDays,
     'created'   => $created,
     'skipped'   => $skipped,
 ], "Generated $created new slots ($skipped duplicates skipped).");

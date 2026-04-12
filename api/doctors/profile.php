@@ -63,16 +63,18 @@ if ($method === 'GET') {
         }
     }
 
-    // Handle available_days - accept comma-separated or array, store as JSON
+    // Handle available_days - accept comma-separated or array, store as JSON.
     $availDaysRaw = $input['available_days'] ?? '';
     if (is_array($availDaysRaw)) {
-        $availDays = json_encode($availDaysRaw);
+        $days = array_map('trim', $availDaysRaw);
     } elseif (is_string($availDaysRaw) && $availDaysRaw !== '') {
         $days = array_map('trim', explode(',', $availDaysRaw));
-        $availDays = json_encode($days);
     } else {
-        $availDays = '[]';
+        $days = [];
     }
+    $days = array_values(array_filter($days, static fn($d) => $d !== ''));
+    $availDays = json_encode($days);
+    $availDaysLower = array_values(array_unique(array_map(static fn($d) => strtolower((string) $d), $days)));
 
     // Update user table fields if provided
     if ($fullName || $phone !== '') {
@@ -99,6 +101,45 @@ if ($method === 'GET') {
             'INSERT INTO doctor_profiles (user_id, specialization, bio, consultation_fee, years_experience, clinic_address, available_days) VALUES (?, ?, ?, ?, ?, ?, ?)'
         );
         $stmt->execute([$doctorId, $specialization, $bio, $fee, $experience, $clinicAddr, $availDays]);
+    }
+
+    // Keep future unbooked slots in sync with selected available weekdays.
+    $db = getDB();
+    $activeStatuses = "'pending','confirmed','in_progress'";
+
+    if (!empty($availDaysLower)) {
+        $dayPlaceholders = implode(',', array_fill(0, count($availDaysLower), '?'));
+
+        $disableSql =
+            "UPDATE time_slots ts
+             LEFT JOIN appointments a ON a.slot_id = ts.id AND a.status IN ($activeStatuses)
+             SET ts.is_available = 0
+             WHERE ts.doctor_id = ?
+               AND ts.slot_date >= CURDATE()
+               AND a.id IS NULL
+               AND LOWER(DAYNAME(ts.slot_date)) NOT IN ($dayPlaceholders)";
+        $disableParams = array_merge([$doctorId], $availDaysLower);
+        $db->prepare($disableSql)->execute($disableParams);
+
+        $enableSql =
+            "UPDATE time_slots ts
+             LEFT JOIN appointments a ON a.slot_id = ts.id AND a.status IN ($activeStatuses)
+             SET ts.is_available = 1
+             WHERE ts.doctor_id = ?
+               AND ts.slot_date >= CURDATE()
+               AND a.id IS NULL
+               AND LOWER(DAYNAME(ts.slot_date)) IN ($dayPlaceholders)";
+        $enableParams = array_merge([$doctorId], $availDaysLower);
+        $db->prepare($enableSql)->execute($enableParams);
+    } else {
+        $db->prepare(
+            "UPDATE time_slots ts
+             LEFT JOIN appointments a ON a.slot_id = ts.id AND a.status IN ($activeStatuses)
+             SET ts.is_available = 0
+             WHERE ts.doctor_id = ?
+               AND ts.slot_date >= CURDATE()
+               AND a.id IS NULL"
+        )->execute([$doctorId]);
     }
 
     jsonSuccess([], 'Profile updated successfully.');

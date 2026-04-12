@@ -5,6 +5,17 @@ require_once __DIR__ . '/../../includes/header.php';
 requireRole(['doctor']);
 $user = getCurrentUser();
 $doctorId = $user['id'];
+$doctorProfile = getDoctorProfile($doctorId);
+
+$availRaw = $doctorProfile['available_days'] ?? '';
+$availArr = json_decode((string) $availRaw, true);
+if (!is_array($availArr)) {
+  $availArr = $availRaw ? explode(',', (string) $availRaw) : [];
+}
+$availDays = array_values(array_unique(array_filter(array_map(
+  static fn($d) => strtolower(trim((string) $d)),
+  $availArr
+))));
 
 $days = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
 ?>
@@ -59,7 +70,8 @@ $days = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday']
       <div class="form-group"><label class="form-label">Days</label>
         <div style="display:flex;flex-wrap:wrap;gap:8px;">
           <?php foreach($days as $idx=>$day): ?>
-            <label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" class="gen-day" value="<?= strtolower($day) ?>" <?= $idx<5?'checked':'' ?> /> <?= substr($day,0,3) ?></label>
+            <?php $dayKey = strtolower($day); $isDefaultChecked = !empty($availDays) ? in_array($dayKey, $availDays, true) : ($idx < 5); ?>
+            <label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" class="gen-day" value="<?= $dayKey ?>" <?= $isDefaultChecked ? 'checked' : '' ?> /> <?= substr($day,0,3) ?></label>
           <?php endforeach; ?>
         </div>
       </div>
@@ -101,14 +113,19 @@ $days = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday']
     var btn=this;btn.disabled=true;btn.innerHTML='<i class="fa-solid fa-spinner fa-spin"></i> Generating…';
     var startTime = document.getElementById('genStartTime').value;
     var endTime = document.getElementById('genEndTime').value;
-    var startHour = parseInt(startTime.split(':')[0], 10);
-    var endHour = parseInt(endTime.split(':')[0], 10);
+    if(!startTime || !endTime){
+      btn.disabled=false;btn.innerHTML='<i class="fa-solid fa-wand-magic-sparkles"></i> Generate';
+      utils.showAlert('Select start and end time.','warning');
+      return;
+    }
+
     utils.apiPost(utils.apiUrl('appointments/slots/generate.php'),{
       doctor_id:<?= $doctorId ?>,
       from_date:start, to_date:end,
-      start_hour:startHour,
-      end_hour:endHour,
+      start_time:startTime,
+      end_time:endTime,
       slot_duration:parseInt(document.getElementById('genDuration').value),
+      days:days,
       break_start_hour:12,
       break_end_hour:13
     },function(err,data){
