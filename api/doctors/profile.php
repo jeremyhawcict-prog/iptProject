@@ -56,6 +56,13 @@ if ($method === 'GET') {
     $fullName       = getPostString('full_name');
     $phone          = getPostString('phone');
 
+    if ($fullName !== '') {
+        $fullName = normalizeDoctorFullName($fullName);
+        if ($fullName === '') {
+            jsonError('Doctor full_name is required.');
+        }
+    }
+
     // Handle available_days - accept comma-separated or array, store as JSON
     $availDaysRaw = $input['available_days'] ?? '';
     if (is_array($availDaysRaw)) {

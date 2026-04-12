@@ -123,6 +123,20 @@ function validateInt($value, int $min = 0): bool {
     return (int) $value >= $min;
 }
 
+/**
+ * Normalize doctor names for storage by removing leading title prefixes.
+ * Example: "Dr. Dr. Ana Reyes" => "Ana Reyes"
+ */
+function normalizeDoctorFullName(string $fullName): string {
+    $fullName = trim($fullName);
+    if ($fullName === '') {
+        return '';
+    }
+
+    $normalized = preg_replace('/^(?:dr\.?\s*)+/i', '', $fullName);
+    return trim((string) ($normalized ?? $fullName));
+}
+
 /* ──────────────────────────────────────────────────────────
    Audit Logging
    ────────────────────────────────────────────────────────── */

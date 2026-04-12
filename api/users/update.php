@@ -41,6 +41,13 @@ if (!in_array($role, $allowedRoles, true)) {
     jsonError('Role must be one of: ' . implode(', ', $allowedRoles));
 }
 
+if ($role === 'doctor') {
+    $fullName = normalizeDoctorFullName($fullName);
+    if ($fullName === '') {
+        jsonError('Doctor full_name is required.');
+    }
+}
+
 $stmt = getDB()->prepare(
     'UPDATE users SET full_name = ?, email = ?, role = ?, phone = ? WHERE id = ?'
 );

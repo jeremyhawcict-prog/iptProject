@@ -291,15 +291,15 @@ VALUES
    '+63 912 000 0001', 'admin', 'default.svg', 1, 1),
 
   -- Doctors
-  (2, 'Dr. Ana Reyes', 'ana.reyes@mediqueue.com',
+  (2, 'Ana Reyes', 'ana.reyes@mediqueue.com',
    '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi',
    '+63 912 000 0002', 'doctor', 'default.svg', 1, 1),
 
-  (3, 'Dr. Marco Santos', 'marco.santos@mediqueue.com',
+  (3, 'Marco Santos', 'marco.santos@mediqueue.com',
    '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi',
    '+63 912 000 0003', 'doctor', 'default.svg', 1, 1),
 
-  (4, 'Dr. Liza Cruz', 'liza.cruz@mediqueue.com',
+  (4, 'Liza Cruz', 'liza.cruz@mediqueue.com',
    '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi',
    '+63 912 000 0004', 'doctor', 'default.svg', 1, 1),
 

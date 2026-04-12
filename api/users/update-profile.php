@@ -19,6 +19,13 @@ if (!$user) {
 $fullName = getPostString('full_name') ?: $user['full_name'];
 $phone    = getPostString('phone')     ?: $user['phone'];
 
+if (($user['role'] ?? '') === 'doctor') {
+    $fullName = normalizeDoctorFullName($fullName);
+    if ($fullName === '') {
+        jsonError('Doctor full_name is required.');
+    }
+}
+
 $stmt = getDB()->prepare(
     'UPDATE users SET full_name = ?, phone = ? WHERE id = ?'
 );
