@@ -32,6 +32,8 @@ if ($role === 'patient') {
 } elseif ($role === 'doctor') {
     $where[]  = 'a.doctor_id = ?';
     $params[] = $userId;
+    $patientFilter = getGetInt('patient_id');
+    if ($patientFilter) { $where[] = 'a.patient_id = ?'; $params[] = $patientFilter; }
 } else {
     // Staff/Admin can filter by patient or doctor
     $patientFilter = getGetInt('patient_id');

@@ -46,11 +46,16 @@ $total = (int) $countStmt->fetchColumn();
 $offset = ($page - 1) * $perPage;
 
 $sql = "SELECT pr.*,
-               doc.full_name AS doctor_name,
-               pat.full_name AS patient_name
+               doc.full_name  AS doctor_name,
+               pat.full_name  AS patient_name,
+               a.reason_for_visit,
+               a.start_time   AS appointment_time,
+               a.status       AS appointment_status,
+               a.appointment_date
         FROM patient_records pr
         JOIN users doc ON doc.id = pr.doctor_id
         JOIN users pat ON pat.id = pr.patient_id
+        LEFT JOIN appointments a ON a.id = pr.appointment_id
         WHERE $where
         ORDER BY pr.created_at DESC
         LIMIT $perPage OFFSET $offset";

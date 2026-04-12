@@ -34,17 +34,30 @@ requireRole(['patient']);
     utils.apiGet(utils.apiUrl('records/list.php'),{page:currentPage,per_page:10},function(err,data){
       var el=document.getElementById('recordsList');
       if(!data||!data.success||!data.data.records||!data.data.records.length){
-        el.innerHTML='<p class="text-muted text-center" style="padding:32px;">No medical records yet.</p>';
+        el.innerHTML='<p class="text-muted text-center" style="padding:32px;">No medical records have been found.</p>';
         document.getElementById('pagination').innerHTML='';return;
       }
       el.innerHTML='';
       data.data.records.forEach(function(r){
+        var apptTime = (r.appointment_time || '').substring(0, 5) || '—';
+        var statusColors = {
+          completed: '#10B981', cancelled: '#EF4444',
+          rescheduled: '#8B5CF6', confirmed: '#3D6A8A', pending: '#F59E0B'
+        };
+        var statusLabel = r.appointment_status || 'unknown';
+        var statusBadge = '<span style="display:inline-block;padding:2px 10px;border-radius:999px;'
+          + 'font-size:.75rem;font-weight:600;background:' + (statusColors[statusLabel] || '#64748B')
+          + ';color:#fff;">' + statusLabel.charAt(0).toUpperCase() + statusLabel.slice(1) + '</span>';
         var card=document.createElement('div');card.className='record-card';
-        card.innerHTML='<div class="record-header" onclick="this.nextElementSibling.classList.toggle(\'open\');this.querySelector(\'.chevron\').classList.toggle(\'fa-chevron-down\');this.querySelector(\'.chevron\').classList.toggle(\'fa-chevron-up\');">'
+        card.innerHTML='<div class="record-header" onclick="this.nextElementSibling.classList.toggle(\'open\');this.querySelector(\'.chevron\').classList.toggle(\'fa-chevron-down\');this.querySelector(\'.chevron\').classList.toggle(\'fa-chevron-up\');">''
           +'<div><strong>'+utils.formatDate(r.visit_date||r.created_at)+'</strong>'
+          +'<span class="text-muted text-sm" style="margin-left:6px;">· '+apptTime+'</span>'
           +'<span class="text-muted text-sm" style="margin-left:8px;">Dr. '+utils.escapeHtml(r.doctor_name||'—')+'</span></div>'
           +'<i class="fa-solid fa-chevron-down chevron" style="color:var(--text-muted);"></i></div>'
           +'<div class="record-body">'
+          +'<div class="record-field"><strong>Appointment Time</strong>'+utils.escapeHtml(apptTime)+'</div>'
+          +'<div class="record-field"><strong>Status</strong>'+statusBadge+'</div>'
+          +'<div class="record-field"><strong>Reason for Visit / Concern</strong>'+utils.escapeHtml(r.reason_for_visit||'—')+'</div>'
           +'<div class="record-field"><strong>Diagnosis</strong>'+utils.escapeHtml(r.diagnosis||'—')+'</div>'
           +'<div class="record-field"><strong>Prescription</strong><pre style="white-space:pre-wrap;margin:0;font-family:inherit;">'+utils.escapeHtml(r.prescription||'—')+'</pre></div>'
           +'<div class="record-field"><strong>Doctor Notes</strong>'+utils.escapeHtml(r.notes||'—')+'</div>'
