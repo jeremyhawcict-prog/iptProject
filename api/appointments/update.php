@@ -176,6 +176,25 @@ try {
                 );
             }
 
+            // Notify all admins of confirmation
+            try {
+                $adminStmt = $db->prepare("SELECT id FROM users WHERE role = 'admin' AND is_active = 1");
+                $adminStmt->execute();
+                foreach ($adminStmt->fetchAll(PDO::FETCH_COLUMN) as $adminId) {
+                    createSystemNotification(
+                        (int) $adminId,
+                        'Appointment Confirmed',
+                        'Dr. ' . ($doctor['full_name'] ?? 'A doctor')
+                            . ' confirmed appointment #' . $appointmentId
+                            . ' for ' . ($patient['full_name'] ?? 'a patient')
+                            . ' on ' . formatDate($appointment['appointment_date']) . '.',
+                        $appointmentId
+                    );
+                }
+            } catch (\Throwable $e) {
+                error_log('[MediQueue] Admin confirm notification failed: ' . $e->getMessage());
+            }
+
             try {
                 $html = emailAppointmentConfirmation($appointment, $patient, $doctor, 'confirmed');
                 sendMail($patient['email'], 'Appointment Confirmed — MediQueue', $html);
@@ -199,6 +218,35 @@ try {
             $db->prepare('UPDATE time_slots SET is_available = 1 WHERE id = ?')->execute([$appointment['slot_id']]);
             $db->commit();
 
+            // Notify patient of cancellation
+            $cancellerName = ($role === 'doctor') ? ('Dr. ' . ($doctor['full_name'] ?? 'your doctor')) : 'The clinic';
+            createSystemNotification(
+                $patientId,
+                'Appointment Cancelled',
+                $cancellerName . ' has cancelled your appointment scheduled on '
+                    . formatDate($appointment['appointment_date'])
+                    . ' at ' . formatTime($appointment['start_time']) . '.',
+                $appointmentId
+            );
+            // Notify all admins
+            try {
+                $adminStmt = $db->prepare("SELECT id FROM users WHERE role = 'admin' AND is_active = 1");
+                $adminStmt->execute();
+                foreach ($adminStmt->fetchAll(PDO::FETCH_COLUMN) as $adminId) {
+                    createSystemNotification(
+                        (int) $adminId,
+                        'Appointment Cancelled',
+                        'Appointment #' . $appointmentId . ' for '
+                            . ($patient['full_name'] ?? 'a patient')
+                            . ' with Dr. ' . ($doctor['full_name'] ?? 'a doctor')
+                            . ' has been cancelled.',
+                        $appointmentId
+                    );
+                }
+            } catch (\Throwable $e) {
+                error_log('[MediQueue] Admin cancel notification failed: ' . $e->getMessage());
+            }
+
             try {
                 $html = emailAppointmentCancellation($appointment, $patient, $doctor);
                 sendMail($patient['email'], 'Appointment Cancelled — MediQueue', $html);
@@ -216,6 +264,34 @@ try {
             $appointment['status'] = 'completed';
             $db->commit();
 
+            // Notify patient of completion
+            createSystemNotification(
+                $patientId,
+                'Appointment Completed',
+                'Your appointment with Dr. ' . ($doctor['full_name'] ?? 'your doctor')
+                    . ' on ' . formatDate($appointment['appointment_date'])
+                    . ' has been marked as completed. Thank you for visiting MediQueue.',
+                $appointmentId
+            );
+            // Notify all admins
+            try {
+                $adminStmt = $db->prepare("SELECT id FROM users WHERE role = 'admin' AND is_active = 1");
+                $adminStmt->execute();
+                foreach ($adminStmt->fetchAll(PDO::FETCH_COLUMN) as $adminId) {
+                    createSystemNotification(
+                        (int) $adminId,
+                        'Appointment Completed',
+                        'Appointment #' . $appointmentId . ' for '
+                            . ($patient['full_name'] ?? 'a patient')
+                            . ' with Dr. ' . ($doctor['full_name'] ?? 'a doctor')
+                            . ' has been completed.',
+                        $appointmentId
+                    );
+                }
+            } catch (\Throwable $e) {
+                error_log('[MediQueue] Admin complete notification failed: ' . $e->getMessage());
+            }
+
             try {
                 $html = emailAppointmentConfirmation($appointment, $patient, $doctor, 'completed');
                 sendMail($patient['email'], 'Appointment Completed — MediQueue', $html);
@@ -231,6 +307,35 @@ try {
         case 'no_show':
             $db->prepare("UPDATE appointments SET status = 'no_show' WHERE id = ?")->execute([$appointmentId]);
             $db->commit();
+
+            // Notify patient of no-show marking
+            createSystemNotification(
+                $patientId,
+                'Missed Appointment',
+                'You were marked as a no-show for your appointment with Dr. '
+                    . ($doctor['full_name'] ?? 'your doctor')
+                    . ' on ' . formatDate($appointment['appointment_date'])
+                    . '. Please contact us to reschedule.',
+                $appointmentId
+            );
+            // Notify all admins
+            try {
+                $adminStmt = $db->prepare("SELECT id FROM users WHERE role = 'admin' AND is_active = 1");
+                $adminStmt->execute();
+                foreach ($adminStmt->fetchAll(PDO::FETCH_COLUMN) as $adminId) {
+                    createSystemNotification(
+                        (int) $adminId,
+                        'Patient No-Show',
+                        ($patient['full_name'] ?? 'A patient')
+                            . ' did not show up for appointment #' . $appointmentId
+                            . ' with Dr. ' . ($doctor['full_name'] ?? 'a doctor')
+                            . ' on ' . formatDate($appointment['appointment_date']) . '.',
+                        $appointmentId
+                    );
+                }
+            } catch (\Throwable $e) {
+                error_log('[MediQueue] Admin no-show notification failed: ' . $e->getMessage());
+            }
 
             try {
                 $html = emailNoShow($appointment, $patient, $doctor);
@@ -282,6 +387,36 @@ try {
             $db->prepare('UPDATE time_slots SET is_available = 0 WHERE id = ?')->execute([$newSlotId]);
 
             $db->commit();
+
+            // Notify patient of reschedule
+            createSystemNotification(
+                $patientId,
+                'Appointment Rescheduled',
+                'Your appointment with Dr. ' . ($doctor['full_name'] ?? 'your doctor')
+                    . ' has been rescheduled to '
+                    . formatDate($newSlot['slot_date'])
+                    . ' at ' . formatTime($newSlot['start_time']) . '.',
+                $appointmentId
+            );
+            // Notify all admins
+            try {
+                $adminStmt = $db->prepare("SELECT id FROM users WHERE role = 'admin' AND is_active = 1");
+                $adminStmt->execute();
+                foreach ($adminStmt->fetchAll(PDO::FETCH_COLUMN) as $adminId) {
+                    createSystemNotification(
+                        (int) $adminId,
+                        'Appointment Rescheduled',
+                        'Appointment #' . $appointmentId . ' for '
+                            . ($patient['full_name'] ?? 'a patient')
+                            . ' has been rescheduled to '
+                            . formatDate($newSlot['slot_date'])
+                            . ' at ' . formatTime($newSlot['start_time']) . '.',
+                        $appointmentId
+                    );
+                }
+            } catch (\Throwable $e) {
+                error_log('[MediQueue] Admin reschedule notification failed: ' . $e->getMessage());
+            }
 
             // Update appointment array for email
             $appointment['appointment_date'] = $newSlot['slot_date'];

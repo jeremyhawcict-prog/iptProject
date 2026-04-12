@@ -166,6 +166,16 @@ if (isLoggedIn()) {
                             <i class="fa-solid fa-bell"></i>
                             <span class="notif-badge" id="notif-badge" style="display:none;">0</span>
                         </a>
+                        <?php elseif (hasRole('doctor')): ?>
+                        <a href="<?= BASE_URL ?>/pages/doctor/notifications.php" class="header-icon-btn" id="notification-bell" aria-label="Notifications" style="text-decoration:none;">
+                            <i class="fa-solid fa-bell"></i>
+                            <span class="notif-badge" id="notif-badge" style="display:none;">0</span>
+                        </a>
+                        <?php elseif (hasRole('admin') || hasRole('staff')): ?>
+                        <a href="<?= BASE_URL ?>/pages/admin/notifications.php" class="header-icon-btn" id="notification-bell" aria-label="Notifications" style="text-decoration:none;">
+                            <i class="fa-solid fa-bell"></i>
+                            <span class="notif-badge" id="notif-badge" style="display:none;">0</span>
+                        </a>
                         <?php else: ?>
                         <button class="header-icon-btn" id="notification-bell" aria-label="Notifications">
                             <i class="fa-solid fa-bell"></i>

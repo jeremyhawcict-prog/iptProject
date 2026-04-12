@@ -119,6 +119,27 @@ try {
         );
     }
 
+    // 6b. Notify all admin users about the new booking
+    try {
+        $adminStmt = $db->prepare("SELECT id FROM users WHERE role = 'admin' AND is_active = 1");
+        $adminStmt->execute();
+        $adminIds = $adminStmt->fetchAll(PDO::FETCH_COLUMN);
+        foreach ($adminIds as $adminId) {
+            createSystemNotification(
+                (int) $adminId,
+                'New Appointment Booking',
+                ($patient['full_name'] ?? 'A patient')
+                    . ' booked an appointment with Dr. '
+                    . ($doctor['full_name'] ?? 'a doctor')
+                    . ' on ' . formatDate($slotDate)
+                    . ' at ' . formatTime($startTime) . '.',
+                $appointmentId
+            );
+        }
+    } catch (\Throwable $e) {
+        error_log('[MediQueue] Admin notification failed for booking #' . $appointmentId . ': ' . $e->getMessage());
+    }
+
     // 7. Send email notifications (failure must NOT break the booking)
     try {
         $html = emailAppointmentConfirmation($appointment, $patient, $doctor, 'pending');
