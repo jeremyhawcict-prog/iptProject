@@ -57,7 +57,8 @@ $totalPages = (int) ceil($total / $limit);
 
 $stmt = $db->prepare(
     "SELECT id, user_id, user_name, action, entity_type, entity_id, details, ip_address,
-            created_at, DATE_FORMAT(created_at, '%b %d, %Y %h:%i %p') AS created_at_formatted
+            created_at,
+            DATE_FORMAT(CONVERT_TZ(created_at, '+00:00', '+08:00'), '%b %d, %Y %h:%i %p') AS created_at_formatted
      FROM audit_logs
      WHERE $where
      ORDER BY created_at DESC

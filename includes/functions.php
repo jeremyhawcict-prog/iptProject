@@ -140,7 +140,7 @@ function logAudit(
 
         $stmt = $db->prepare(
             'INSERT INTO audit_logs (user_id, action, entity_type, entity_id, details, ip_address, created_at)
-             VALUES (?, ?, ?, ?, ?, ?, CONVERT_TZ(NOW(), \'+00:00\', \'+08:00\'))'
+             VALUES (?, ?, ?, ?, ?, ?, NOW())'
         );
         return $stmt->execute([$userId, $action, $entityType, $entityId, $details, $ip]);
     } catch (\Throwable $e) {
