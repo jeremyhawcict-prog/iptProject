@@ -6,7 +6,17 @@ requireRole(['doctor']);
 $user = getCurrentUser();
 $doctorId = $user['id'];
 
-$days = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+// Load doctor's available days from profile
+$dpRow = getDoctorProfile($doctorId);
+$availDaysArr = [];
+if ($dpRow && !empty($dpRow['available_days'])) {
+    $parsed = json_decode($dpRow['available_days'], true);
+    if (is_array($parsed) && count($parsed) > 0) {
+        $availDaysArr = array_map(fn($d) => ucfirst(strtolower(trim($d))), $parsed);
+    }
+}
+
+$allDays = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
 ?>
 
 <div style="display:grid;gap:20px;max-width:900px;">
@@ -26,9 +36,11 @@ $days = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday']
       for($i=0;$i<7;$i++):
         $d = date('Y-m-d', strtotime($startOfWeek . " +$i days"));
         $dayName = date('D', strtotime($d));
+        $fullDayName = date('l', strtotime($d)); // e.g. "Monday"
         $isToday = $d === date('Y-m-d');
+        $isAvail = empty($availDaysArr) || in_array($fullDayName, $availDaysArr);
       ?>
-        <button class="btn btn-sm <?= $isToday ? 'btn-primary' : 'btn-outline' ?> day-btn" data-date="<?= $d ?>" onclick="loadSlots('<?= $d ?>')" style="min-width:80px;">
+        <button class="btn btn-sm <?= $isToday ? 'btn-primary' : 'btn-outline' ?> day-btn<?= !$isAvail ? ' day-unavailable' : '' ?>" data-date="<?= $d ?>" data-available="<?= $isAvail ? '1' : '0' ?>" style="min-width:80px;<?= !$isAvail ? 'opacity:.38;cursor:not-allowed;' : '' ?>" title="<?= !$isAvail ? $fullDayName . ' is not an available day' : '' ?>" onclick="<?= $isAvail ? "loadSlots('$d')" : "utils.showToast('$fullDayName is not in your available days.','warning')" ?>">
           <?= $dayName ?><br><small><?= date('M j', strtotime($d)) ?></small>
         </button>
       <?php endfor; ?>
@@ -58,10 +70,16 @@ $days = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday']
       <div class="form-group"><label class="form-label">Slot Duration (min)</label><input type="number" id="genDuration" class="form-control" value="<?= SLOT_DURATION_MIN ?>" min="10" max="120" /></div>
       <div class="form-group"><label class="form-label">Days</label>
         <div style="display:flex;flex-wrap:wrap;gap:8px;">
-          <?php foreach($days as $idx=>$day): ?>
-            <label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" class="gen-day" value="<?= strtolower($day) ?>" <?= $idx<5?'checked':'' ?> /> <?= substr($day,0,3) ?></label>
+          <?php foreach($allDays as $day): ?>
+            <label style="display:flex;align-items:center;gap:4px;cursor:pointer;<?= !in_array($day, $availDaysArr) && !empty($availDaysArr) ? 'opacity:.4;' : '' ?>">
+              <input type="checkbox" class="gen-day" value="<?= $day ?>" <?= (empty($availDaysArr) || in_array($day, $availDaysArr)) ? 'checked' : '' ?> <?= !in_array($day, $availDaysArr) && !empty($availDaysArr) ? 'disabled' : '' ?> />
+              <?= substr($day,0,3) ?>
+            </label>
           <?php endforeach; ?>
         </div>
+        <?php if (!empty($availDaysArr)): ?>
+        <p class="text-muted" style="font-size:.78rem;margin:6px 0 0;"><i class="fa-solid fa-circle-info"></i> Only your available days can be selected. Update them in <a href="<?= BASE_URL ?>/pages/doctor/profile.php">My Profile</a>.</p>
+        <?php endif; ?>
       </div>
     </div>
     <div class="modal-footer"><button class="btn btn-secondary" onclick="closeModal('generateModal')">Cancel</button><button class="btn btn-primary" id="submitGenerate"><i class="fa-solid fa-wand-magic-sparkles"></i> Generate</button></div>
@@ -110,7 +128,8 @@ $days = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday']
       end_hour:endHour,
       slot_duration:parseInt(document.getElementById('genDuration').value),
       break_start_hour:12,
-      break_end_hour:13
+      break_end_hour:13,
+      days:days
     },function(err,data){
       btn.disabled=false;btn.innerHTML='<i class="fa-solid fa-wand-magic-sparkles"></i> Generate';
       if(data&&data.success){closeModal('generateModal');utils.showToast('Slots generated!','success');}

@@ -25,14 +25,6 @@ $stmt = $pdo->prepare(
 $stmt->execute([$uid]);
 $upcoming = $stmt->fetchAll();
 
-// Recent records
-$stmt = $pdo->prepare(
-    "SELECT pr.*, u.full_name AS doctor_name FROM patient_records pr
-     JOIN users u ON u.id = pr.doctor_id
-     WHERE pr.patient_id = ? ORDER BY pr.created_at DESC LIMIT 3"
-);
-$stmt->execute([$uid]);
-$records = $stmt->fetchAll();
 ?>
 
 <!-- Stat Cards -->
@@ -104,27 +96,7 @@ $records = $stmt->fetchAll();
   </div>
 </div>
 
-<!-- Recent Records -->
-<div class="card-glass" style="padding:24px;">
-  <h3 style="margin:0 0 16px;"><i class="fa-solid fa-file-medical" style="color:var(--color-primary);margin-right:8px;"></i>Recent Medical Records</h3>
-  <?php if (empty($records)): ?>
-  <p class="text-muted" style="text-align:center;padding:20px 0;">No medical records yet.</p>
-  <?php else: ?>
-  <?php foreach ($records as $rec): ?>
-  <div style="background:var(--input-bg,rgba(232,244,251,.55));border-radius:12px;padding:16px;margin-bottom:12px;">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-      <strong><?= htmlspecialchars($rec['diagnosis']) ?></strong>
-      <span class="text-muted text-sm"><?= formatDate($rec['created_at']) ?></span>
-    </div>
-    <p style="font-size:.9rem;color:var(--text-secondary);margin:0;">By Dr. <?= htmlspecialchars($rec['doctor_name']) ?></p>
-    <?php if (!empty($rec['prescription'])): ?>
-    <p style="font-size:.85rem;margin:8px 0 0;"><strong>Rx:</strong> <?= htmlspecialchars($rec['prescription']) ?></p>
-    <?php endif; ?>
-  </div>
-  <?php endforeach; ?>
-  <a href="<?= BASE_URL ?>/pages/patient/my-records.php" style="font-size:.9rem;font-weight:600;">View all records →</a>
-  <?php endif; ?>
-</div>
+
 
 <script>
 (function(){
