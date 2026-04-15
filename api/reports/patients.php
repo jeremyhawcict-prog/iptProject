@@ -11,7 +11,7 @@ guardApi('GET', true, false, ['staff', 'admin']);
 
 $db = getDB();
 
-$totalPatients = (int) $db->query("SELECT COUNT(*) FROM users WHERE role = 'patient'")->fetchColumn();
+$totalPatients  = (int) $db->query("SELECT COUNT(*) FROM users WHERE role = 'patient'")->fetchColumn();
 $activePatients = (int) $db->query("SELECT COUNT(*) FROM users WHERE role = 'patient' AND is_active = 1")->fetchColumn();
 
 // Monthly registrations (last 12 months)
@@ -23,9 +23,22 @@ $registrations = $db->query(
      ORDER BY month ASC"
 )->fetchAll();
 
+// Top patients by appointment frequency
+$topPatients = $db->query(
+    "SELECT u.id, u.full_name, u.email, u.created_at AS joined,
+            COUNT(a.id) AS total_appointments,
+            SUM(CASE WHEN a.status = 'completed' THEN 1 ELSE 0 END) AS completed
+     FROM users u
+     LEFT JOIN appointments a ON a.patient_id = u.id
+     WHERE u.role = 'patient' AND u.is_active = 1
+     GROUP BY u.id
+     ORDER BY total_appointments DESC
+     LIMIT 15"
+)->fetchAll();
+
 jsonSuccess([
     'total_patients'  => $totalPatients,
     'active_patients' => $activePatients,
-    'avg_age'         => 0,
     'registrations'   => $registrations,
+    'top_patients'    => $topPatients,
 ]);

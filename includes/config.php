@@ -9,6 +9,10 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
+// ── Timezone ──────────────────────────────────────────────
+// Philippine Standard Time (UTC+8)
+date_default_timezone_set('Asia/Manila');
+
 // ── Environment flag ──────────────────────────────────────
 // Set to false in production on ByetHost
 define('MQ_DEBUG', true);
@@ -61,6 +65,7 @@ function getDB(): PDO {
             PDO::ATTR_EMULATE_PREPARES   => false,
         ];
         $pdo = new PDO($dsn, DB_USER, DB_PASS, $options);
+        $pdo->exec("SET time_zone = '+08:00'"); // Philippine Standard Time (UTC+8)
     }
     return $pdo;
 }
