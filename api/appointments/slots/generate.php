@@ -48,6 +48,46 @@ if (!$doctor || $doctor['role'] !== 'doctor') {
 }
 
 $db = getDB();
+
+// ── Load doctor's configured available days ───────────────
+$dpStmt = $db->prepare('SELECT available_days FROM doctor_profiles WHERE user_id = ?');
+$dpStmt->execute([$doctorId]);
+$dpRow = $dpStmt->fetch();
+
+$doctorAvailDays = [];
+if ($dpRow && !empty($dpRow['available_days'])) {
+    $parsed = json_decode($dpRow['available_days'], true);
+    if (is_array($parsed) && count($parsed) > 0) {
+        // Normalise to ucfirst (e.g. "monday" → "Monday")
+        $doctorAvailDays = array_map(fn($d) => ucfirst(strtolower(trim($d))), $parsed);
+    }
+}
+
+// ── Accept optional caller-supplied days ──────────────────
+$input      = getJsonInput();
+$daysRaw    = $input['days'] ?? [];
+if (is_string($daysRaw) && $daysRaw !== '') {
+    $daysRaw = array_map('trim', explode(',', $daysRaw));
+}
+$requestedDays = is_array($daysRaw)
+    ? array_map(fn($d) => ucfirst(strtolower(trim($d))), $daysRaw)
+    : [];
+
+// Effective allowed days:
+//  - If caller supplied days AND doctor has a profile: intersect (can only narrow, never expand)
+//  - If caller supplied days but no profile: use caller's list
+//  - If caller supplied nothing: use doctor's profile days
+//  - If neither is set: allow all days (legacy / no profile yet)
+if (!empty($requestedDays) && !empty($doctorAvailDays)) {
+    $allowedDays = array_values(array_intersect($requestedDays, $doctorAvailDays));
+} elseif (!empty($requestedDays)) {
+    $allowedDays = $requestedDays;
+} elseif (!empty($doctorAvailDays)) {
+    $allowedDays = $doctorAvailDays;
+} else {
+    $allowedDays = []; // empty = no filter applied
+}
+
 $insertStmt = $db->prepare(
     'INSERT IGNORE INTO time_slots (doctor_id, slot_date, start_time, end_time)
      VALUES (?, ?, ?, ?)'
@@ -61,6 +101,13 @@ $end->modify('+1 day'); // inclusive end
 
 while ($current < $end) {
     $dateStr = $current->format('Y-m-d');
+    $dayName = $current->format('l'); // e.g. "Monday", "Tuesday"
+
+    // Skip if this weekday is not in the doctor's allowed days
+    if (!empty($allowedDays) && !in_array($dayName, $allowedDays, true)) {
+        $current->modify('+1 day');
+        continue;
+    }
 
     // Generate slots for this day
     $hour   = $startHour;

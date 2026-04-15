@@ -45,7 +45,6 @@ if (isLoggedIn()) {
             ['label' => 'Overview',     'icon' => 'fa-solid fa-gauge-high',    'href' => BASE_URL . '/pages/patient/dashboard.php',       'page' => 'dashboard.php'],
             ['label' => 'Book Appointment', 'icon' => 'fa-solid fa-calendar-plus', 'href' => BASE_URL . '/pages/patient/book-appointment.php', 'page' => 'book-appointment.php'],
             ['label' => 'My Appointments',  'icon' => 'fa-solid fa-calendar-check','href' => BASE_URL . '/pages/patient/my-appointments.php',  'page' => 'my-appointments.php'],
-            ['label' => 'My Records',       'icon' => 'fa-solid fa-file-medical',  'href' => BASE_URL . '/pages/patient/my-records.php',       'page' => 'my-records.php'],
             ['label' => 'Notifications',    'icon' => 'fa-solid fa-bell',          'href' => BASE_URL . '/pages/patient/notifications.php',    'page' => 'notifications.php'],
             ['divider' => true],
             ['label' => 'My Profile',   'icon' => 'fa-solid fa-user',          'href' => BASE_URL . '/pages/patient/profile.php',         'page' => 'profile.php'],
