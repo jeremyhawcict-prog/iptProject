@@ -58,6 +58,13 @@ $doctors = $stmt->fetchAll();
 foreach ($doctors as &$d) {
     $d['avg_rating']   = round((float) $d['avg_rating'], 1);
     $d['review_count'] = (int) $d['review_count'];
+    // Parse available_days JSON into an array for easier frontend consumption
+    if (!empty($d['available_days'])) {
+        $parsed = json_decode($d['available_days'], true);
+        $d['available_days'] = is_array($parsed) ? $parsed : [];
+    } else {
+        $d['available_days'] = [];
+    }
 }
 
 jsonSuccess([
