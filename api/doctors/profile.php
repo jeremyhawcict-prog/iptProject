@@ -22,6 +22,7 @@ if ($method === 'GET') {
     $stmt = getDB()->prepare(
         "SELECT u.id, u.full_name, u.email, u.phone, u.profile_photo,
                 dp.specialization, dp.bio, dp.years_experience, dp.clinic_address, dp.consultation_fee,
+                dp.available_days,
                 COALESCE(AVG(f.rating), 0) AS avg_rating,
                 COUNT(DISTINCT f.id) AS review_count
          FROM users u
@@ -40,6 +41,14 @@ if ($method === 'GET') {
 
     $doctor['avg_rating']   = round((float) $doctor['avg_rating'], 1);
     $doctor['review_count'] = (int) $doctor['review_count'];
+
+    // Parse available_days JSON into an array for easier frontend consumption
+    if (!empty($doctor['available_days'])) {
+        $parsed = json_decode($doctor['available_days'], true);
+        $doctor['available_days'] = is_array($parsed) ? $parsed : [];
+    } else {
+        $doctor['available_days'] = [];
+    }
 
     jsonSuccess(['doctor' => $doctor]);
 
