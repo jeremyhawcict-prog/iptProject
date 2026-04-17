@@ -49,8 +49,10 @@ define('APP_VERSION', '2.0');
 define('SLOT_DURATION_MIN', 30);
 
 // ── Mail credentials (Gmail SMTP) ─────────────────────────
-define('MAIL_USER', 'your-email@gmail.com');      // ← change to your Gmail address
-define('MAIL_PASS', 'your-gmail-app-password');    // ← change to your Gmail App Password
+// Use a real Gmail address and a Gmail App Password (NOT your normal Gmail password).
+// To generate an App Password: Google Account → Security → 2-Step Verification → App Passwords.
+define('MAIL_USER', 'charlesandreiv033@gmail.com');   // ← replace with actual Gmail address
+define('MAIL_PASS', 'nmso qloj pkvh ijlp');          // ← replace with 16-char Gmail App Password
 
 // ── PDO connection (singleton) ────────────────────────────
 function getDB(): PDO {
