@@ -257,8 +257,10 @@ function getPagination(int $page, int $limit): array {
 function paginationResponse(int $currentPage, int $limit, int $total): array {
     $totalPages = (int) ceil($total / $limit);
     return [
-        'total_pages'  => $totalPages,
         'current_page' => $currentPage,
+        'per_page'     => $limit,
+        'total'        => $total,
+        'total_pages'  => $totalPages,
         'has_prev'     => $currentPage > 1,
         'has_next'     => $currentPage < $totalPages,
     ];
