@@ -84,8 +84,6 @@ requireRole(['patient']);
       <label class="form-label">Reminder Preference</label>
       <div style="display:flex;gap:16px;">
         <label style="display:flex;align-items:center;gap:6px;font-size:.88rem;cursor:pointer;"><input type="radio" name="reminderPref" value="email" checked /> Email</label>
-        <label style="display:flex;align-items:center;gap:6px;font-size:.88rem;cursor:pointer;"><input type="radio" name="reminderPref" value="sms" /> SMS</label>
-        <label style="display:flex;align-items:center;gap:6px;font-size:.88rem;cursor:pointer;"><input type="radio" name="reminderPref" value="both" /> Both</label>
       </div>
     </div>
     <div style="display:flex;gap:8px;margin-top:16px;">
