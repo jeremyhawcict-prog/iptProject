@@ -27,6 +27,35 @@ if (!$doctor) {
     jsonError('Doctor not found.', 404);
 }
 
+// Enforce doctor's working days
+if (!empty($doctor['available_days'])) {
+    $availDays = json_decode($doctor['available_days'], true);
+    if (!is_array($availDays)) {
+        $availDays = is_string($doctor['available_days']) ? array_map('trim', explode(',', $doctor['available_days'])) : [];
+    }
+    
+    // Normalize to proper-case days (e.g. 'Monday', 'Tuesday')
+    $normalizedAvailDays = array_map(function($d) {
+        return ucfirst(strtolower(trim($d)));
+    }, $availDays);
+    
+    if (count($normalizedAvailDays) > 0) {
+        $dayOfWeek = date('l', strtotime($date));
+        if (!in_array($dayOfWeek, $normalizedAvailDays)) {
+            jsonSuccess([
+                'doctor'  => [
+                    'id'             => (int) $doctor['id'],
+                    'full_name'      => $doctor['full_name'],
+                    'specialization' => $doctor['specialization'],
+                ],
+                'date'    => $date,
+                'slots'   => [],
+                'count'   => 0
+            ]);
+        }
+    }
+}
+
 $db   = getDB();
 $stmt = $db->prepare(
     'SELECT id, slot_date, start_time, end_time
