@@ -141,10 +141,27 @@ try {
     }
 
     // 7. Send email notifications (failure must NOT break the booking)
+    $patientMailResult = ['success' => false];
     try {
-        $html = emailAppointmentConfirmation($appointment, $patient, $doctor, 'pending');
-        sendMail($patient['email'], 'Appointment Booked — MediQueue', $html);
-        sendMail($doctor['email'],  'New Appointment Booked — MediQueue', $html);
+        $html = emailAppointmentConfirmation(
+            $appointment,
+            $patient,
+            $doctor,
+            'pending',
+            $visitType,
+            $reason,
+            $reminderPref
+        );
+
+        $patientMailResult = sendMail($patient['email'], 'Appointment Confirmation — MediQueue', $html);
+        if (!$patientMailResult['success']) {
+            error_log('[MediQueue] Patient confirmation email failed for booking #' . $appointmentId . ': ' . $patientMailResult['error']);
+        }
+
+        $doctorMailResult = sendMail($doctor['email'], 'New Appointment Booked — MediQueue', $html);
+        if (!$doctorMailResult['success']) {
+            error_log('[MediQueue] Doctor notification email failed for booking #' . $appointmentId . ': ' . $doctorMailResult['error']);
+        }
     } catch (\Throwable $e) {
         error_log('[MediQueue] Email failed after booking #' . $appointmentId . ': ' . $e->getMessage());
     }
@@ -156,6 +173,7 @@ try {
         'time'           => formatTime($startTime),
         'status'         => 'pending',
         'notification_sent_to_doctor' => (bool) $doctorNotifId,
+        'email_sent'     => $patientMailResult['success'],
     ], 'Appointment booked successfully.', 201);
 
 } catch (\Throwable $e) {
