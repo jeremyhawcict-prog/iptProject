@@ -45,7 +45,7 @@ function emailLayout(string $title, string $body): string {
 /**
  * Appointment booked / confirmed notification.
  */
-function emailAppointmentConfirmation(array $appointment, array $patient, array $doctor, string $status = 'confirmed'): string {
+function emailAppointmentConfirmation(array $appointment, array $patient, array $doctor, string $status = 'confirmed', string $visitType = '', string $notes = '', string $reminderPref = ''): string {
     $statusLabel = ucfirst($status);
     $statusColor = $status === 'confirmed' ? '#059669' : '#3d8ab0';
     $body = '
@@ -59,8 +59,19 @@ function emailAppointmentConfirmation(array $appointment, array $patient, array 
           <tr><td style="font-weight:600;">Date</td><td>' . formatDate($appointment['appointment_date']) . '</td></tr>
           <tr><td style="font-weight:600;">Time</td><td>' . formatTime($appointment['start_time']) . '</td></tr>
           <tr><td style="font-weight:600;">Status</td><td><span style="color:' . $statusColor . ';font-weight:700;">' . $statusLabel . '</span></td></tr>
+          <tr><td style="font-weight:600;">Visit Type</td><td>' . sanitize($visitType ?: ($appointment['visit_type'] ?? 'General Checkup')) . '</td></tr>';
+          
+          if (!empty($notes ?: ($appointment['reason_for_visit'] ?? ''))) {
+              $body .= '<tr><td style="font-weight:600;">Notes</td><td>' . sanitize($notes ?: $appointment['reason_for_visit']) . '</td></tr>';
+          }
+          if (!empty($reminderPref ?: ($appointment['reminder_preference'] ?? ''))) {
+              $body .= '<tr><td style="font-weight:600;">Reminder Via</td><td>' . ucfirst($reminderPref ?: $appointment['reminder_preference']) . '</td></tr>';
+          }
+          
+    $body .= '
         </table>
-        <p style="color:#5a6a7a;font-size:13px;margin:20px 0 0;">If you need to reschedule or cancel, please log in to your MediQueue account.</p>';
+        <p style="color:#5a6a7a;font-size:13px;margin:20px 0 0;">A copy of this receipt has been sent to <strong>' . sanitize($patient['email']) . '</strong>. 
+   If you need to reschedule or cancel, please log in to your MediQueue account.</p>';
     return emailLayout('Appointment ' . $statusLabel, $body);
 }
 
