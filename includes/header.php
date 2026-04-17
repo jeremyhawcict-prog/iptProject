@@ -350,6 +350,19 @@ if (isLoggedIn()) {
         });
     }
 
+    /* ── Patient/Doctor logout confirmation ── */
+    var shouldConfirmLogout = <?= (hasRole('patient') || hasRole('doctor')) ? 'true' : 'false' ?>;
+    if (shouldConfirmLogout) {
+        var logoutLinks = document.querySelectorAll('a[href$="/api/auth/logout.php"]');
+        logoutLinks.forEach(function (link) {
+            link.addEventListener('click', function (e) {
+                if (!window.confirm('Are you sure you want to log out?')) {
+                    e.preventDefault();
+                }
+            });
+        });
+    }
+
     /* ── Flash auto-dismiss ── */
     var flash = document.getElementById('flash-alert');
     if (flash) setTimeout(function () { flash.style.opacity = '0'; setTimeout(function () { flash.remove(); }, 400); }, 5000);
