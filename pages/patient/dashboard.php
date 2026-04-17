@@ -68,7 +68,7 @@ $upcoming = $stmt->fetchAll();
         <td><?= htmlspecialchars($a['specialization'] ?? '-') ?></td>
         <td><span class="badge <?= $a['status'] === 'confirmed' ? 'badge-success' : 'badge-warning' ?> js-appt-status-badge"><?= ucfirst(str_replace('_', ' ', $a['status'])) ?></span></td>
         <td style="display:flex;gap:6px;">
-          <button class="btn btn-sm btn-secondary reschedule-btn" data-id="<?= $a['id'] ?>"><i class="fa-solid fa-calendar-pen"></i></button>
+          <button class="btn btn-sm btn-secondary reschedule-btn" data-id="<?= $a['id'] ?>"><i class="fa-solid fa-clock-rotate-left"></i></button>
           <button class="btn btn-sm btn-danger cancel-btn" data-id="<?= $a['id'] ?>"><i class="fa-solid fa-xmark"></i></button>
         </td>
       </tr>
